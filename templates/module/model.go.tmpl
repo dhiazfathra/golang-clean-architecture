@@ -1,0 +1,49 @@
+package {{.Name}}
+
+import "{{.ModPath}}/pkg/platform/eventstore"
+
+type {{.NameTitle}}State struct {
+	ID      string
+{{- range .Fields}}
+	{{.NameTitle}} {{.GoType}}
+{{- end}}
+	Deleted bool
+}
+
+type {{.NameTitle}}Created struct {
+	eventstore.BaseEvent
+{{- range .Fields}}
+	{{.NameTitle}} {{.GoType}} `json:"{{.JSONTag}}"`
+{{- end}}
+}
+
+type {{.NameTitle}}Updated struct {
+	eventstore.BaseEvent
+{{- range .Fields}}
+	{{.NameTitle}} {{.GoType}} `json:"{{.JSONTag}}"`
+{{- end}}
+}
+
+type {{.NameTitle}}Deleted struct {
+	eventstore.BaseEvent
+}
+
+func apply{{.NameTitle}}(s *{{.NameTitle}}State, e eventstore.Event) {
+	switch ev := e.(type) {
+	case *{{.NameTitle}}Created:
+		s.ID = ev.AggregateID()
+{{- range .Fields}}
+		s.{{.NameTitle}} = ev.{{.NameTitle}}
+{{- end}}
+	case *{{.NameTitle}}Updated:
+{{- range .Fields}}
+		s.{{.NameTitle}} = ev.{{.NameTitle}}
+{{- end}}
+	case *{{.NameTitle}}Deleted:
+		s.Deleted = true
+	}
+}
+
+func New{{.NameTitle}}Aggregate(id string) *eventstore.Aggregate[{{.NameTitle}}State] {
+	return eventstore.New[{{.NameTitle}}State](id, apply{{.NameTitle}})
+}

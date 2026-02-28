@@ -1,0 +1,42 @@
+package {{.Name}}
+
+import (
+	"context"
+	"strconv"
+
+	"github.com/jmoiron/sqlx"
+
+	"{{.ModPath}}/pkg/platform/database"
+)
+
+type pgReadRepo struct{ db *sqlx.DB }
+
+func NewPgReadRepository(db *sqlx.DB) ReadRepository { return &pgReadRepo{db: db} }
+
+var allowedSorts = map[string]string{
+	"created_at": "created_at",
+	"updated_at": "updated_at",
+}
+
+func (r *pgReadRepo) GetByID(ctx context.Context, id string) (*{{.NameTitle}}ReadModel, error) {
+	entityID, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return nil, err
+	}
+	return database.Get[{{.NameTitle}}ReadModel](ctx, r.db,
+		`SELECT * FROM {{.Name}}_read WHERE id = $1`, entityID)
+}
+
+func (r *pgReadRepo) List(ctx context.Context, req ListRequest) (*ListResponse, error) {
+	pr := database.PageRequest{Page: req.Page, PageSize: req.PageSize, SortBy: req.SortBy, SortDir: req.SortDir}
+	pr.Normalise("created_at")
+	page, err := database.PaginatedSelect[{{.NameTitle}}ReadModel](ctx, r.db,
+		`SELECT * FROM {{.Name}}_read`, pr, allowedSorts)
+	if err != nil {
+		return nil, err
+	}
+	return &ListResponse{
+		Items: page.Items, Total: page.Total, Page: page.Page,
+		PageSize: page.PageSize, TotalPages: page.TotalPages,
+	}, nil
+}

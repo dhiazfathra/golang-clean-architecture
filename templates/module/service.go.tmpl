@@ -1,0 +1,93 @@
+package {{.Name}}
+
+import (
+	"context"
+	"fmt"
+
+	"{{.ModPath}}/pkg/platform/eventstore"
+	"{{.ModPath}}/pkg/platform/httputil"
+	"{{.ModPath}}/pkg/platform/snowflake"
+)
+
+type Create{{.NameTitle}}Cmd struct {
+{{- range .Fields}}
+	{{.NameTitle}} {{.GoType}}
+{{- end}}
+	Actor string
+}
+
+type Update{{.NameTitle}}Cmd struct {
+	ID string
+{{- range .Fields}}
+	{{.NameTitle}} {{.GoType}}
+{{- end}}
+	Actor string
+}
+
+type Service struct {
+	store eventstore.EventStore
+	repo  ReadRepository
+}
+
+func NewService(store eventstore.EventStore, repo ReadRepository) *Service {
+	return &Service{store: store, repo: repo}
+}
+
+func (s *Service) Create(ctx context.Context, cmd Create{{.NameTitle}}Cmd) (string, error) {
+	id := snowflake.NewStringID()
+	agg := New{{.NameTitle}}Aggregate(id)
+	meta := map[string]string{"user_id": cmd.Actor}
+	agg.Apply(&{{.NameTitle}}Created{
+		BaseEvent: eventstore.NewBaseEvent(id, "{{.Name}}", "{{.Name}}.created", 1, meta),
+{{- range .Fields}}
+		{{.NameTitle}}: cmd.{{.NameTitle}},
+{{- end}}
+	})
+	if err := s.store.Append(ctx, agg.Uncommitted()); err != nil {
+		return "", fmt.Errorf("append: %w", err)
+	}
+	return id, nil
+}
+
+func (s *Service) GetByID(ctx context.Context, id string) (*{{.NameTitle}}ReadModel, error) {
+	return s.repo.GetByID(ctx, id)
+}
+
+func (s *Service) List(ctx context.Context, req ListRequest) (*ListResponse, error) {
+	return s.repo.List(ctx, req)
+}
+
+func (s *Service) Update(ctx context.Context, cmd Update{{.NameTitle}}Cmd) error {
+	events, _ := s.store.Load(ctx, "{{.Name}}", cmd.ID, 0)
+	if len(events) == 0 {
+		return httputil.ErrNotFound
+	}
+	agg := New{{.NameTitle}}Aggregate(cmd.ID)
+	for _, e := range events {
+		agg.Rehydrate(e)
+	}
+	meta := map[string]string{"user_id": cmd.Actor}
+	agg.Apply(&{{.NameTitle}}Updated{
+		BaseEvent: eventstore.NewBaseEvent(cmd.ID, "{{.Name}}", "{{.Name}}.updated", agg.Version+1, meta),
+{{- range .Fields}}
+		{{.NameTitle}}: cmd.{{.NameTitle}},
+{{- end}}
+	})
+	return s.store.Append(ctx, agg.Uncommitted())
+}
+
+func (s *Service) Delete(ctx context.Context, id, actor string) error {
+	events, _ := s.store.Load(ctx, "{{.Name}}", id, 0)
+	if len(events) == 0 {
+		return httputil.ErrNotFound
+	}
+	agg := New{{.NameTitle}}Aggregate(id)
+	for _, e := range events {
+		agg.Rehydrate(e)
+	}
+	meta := map[string]string{"user_id": actor}
+	agg.Apply(&{{.NameTitle}}Deleted{
+		BaseEvent: eventstore.NewBaseEvent(id, "{{.Name}}", "{{.Name}}.deleted", agg.Version+1, meta),
+	})
+	return s.store.Append(ctx, agg.Uncommitted())
+}

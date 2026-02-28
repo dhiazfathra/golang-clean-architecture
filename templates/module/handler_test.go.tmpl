@@ -1,0 +1,207 @@
+package {{.Name}}
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"{{.ModPath}}/pkg/platform/eventstore"
+)
+
+// Handler tests use real *Service backed by hand-rolled mock store/repo.
+// Handler.svc is a concrete *Service, so mocks are injected at the Service level.
+
+// newTestHandler creates a Handler whose Service is backed by the provided mocks.
+func newTestHandler(store eventstore.EventStore, repo ReadRepository) *Handler {
+	return NewHandler(NewService(store, repo))
+}
+
+// echoCtx creates a minimal Echo context for handler testing.
+func echoCtx(method, path, body string) (echo.Context, *httptest.ResponseRecorder) {
+	e := echo.New()
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	if body != "" {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	rec := httptest.NewRecorder()
+	return e.NewContext(req, rec), rec
+}
+
+// createdEvent returns a synthetic {{.NameTitle}}Created event for the given aggregate ID.
+func createdEvent(id string) *{{.NameTitle}}Created {
+	return &{{.NameTitle}}Created{
+		BaseEvent: eventstore.NewBaseEvent(id, "{{.Name}}", "{{.Name}}.created", 1, map[string]string{"user_id": "system"}),
+	}
+}
+
+// --- Create ---
+
+func TestHandler_Create_Returns201(t *testing.T) {
+	store := &mockEventStore{
+		AppendFn: func(_ context.Context, _ []eventstore.Event) error { return nil },
+	}
+	h := newTestHandler(store, &mockReadRepo{})
+
+	c, rec := echoCtx(http.MethodPost, "/{{.NamePlural}}", `{}`)
+	c.Set("user_id", "actor1")
+
+	err := h.Create(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusCreated, rec.Code)
+
+	var body map[string]string
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.NotEmpty(t, body["id"])
+}
+
+// --- GetByID ---
+
+func TestHandler_GetByID_Returns404WhenNotFound(t *testing.T) {
+	repo := &mockReadRepo{
+		GetByIDFn: func(_ context.Context, _ string) (*{{.NameTitle}}ReadModel, error) {
+			return nil, nil
+		},
+	}
+	h := newTestHandler(&mockEventStore{}, repo)
+
+	c, rec := echoCtx(http.MethodGet, "/{{.NamePlural}}/99", "")
+	c.SetParamNames("id")
+	c.SetParamValues("99")
+
+	err := h.GetByID(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandler_GetByID_Returns200WhenFound(t *testing.T) {
+	repo := &mockReadRepo{
+		GetByIDFn: func(_ context.Context, id string) (*{{.NameTitle}}ReadModel, error) {
+			return &{{.NameTitle}}ReadModel{ID: 42}, nil
+		},
+	}
+	h := newTestHandler(&mockEventStore{}, repo)
+
+	c, rec := echoCtx(http.MethodGet, "/{{.NamePlural}}/42", "")
+	c.SetParamNames("id")
+	c.SetParamValues("42")
+
+	err := h.GetByID(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.EqualValues(t, 42, body["id"])
+}
+
+// --- List ---
+
+func TestHandler_List_Returns200(t *testing.T) {
+	repo := &mockReadRepo{
+		ListFn: func(_ context.Context, req ListRequest) (*ListResponse, error) {
+			return &ListResponse{Total: 2, Page: req.Page, PageSize: req.PageSize}, nil
+		},
+	}
+	h := newTestHandler(&mockEventStore{}, repo)
+
+	c, rec := echoCtx(http.MethodGet, "/{{.NamePlural}}", "")
+	err := h.List(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var body map[string]interface{}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	assert.EqualValues(t, 2, body["Total"])
+}
+
+// --- Update ---
+
+func TestHandler_Update_Returns404WhenNotFound(t *testing.T) {
+	store := &mockEventStore{
+		LoadFn: func(_ context.Context, _, _ string, _ int) ([]eventstore.Event, error) {
+			return nil, nil
+		},
+	}
+	h := newTestHandler(store, &mockReadRepo{})
+
+	c, rec := echoCtx(http.MethodPut, "/{{.NamePlural}}/99", `{}`)
+	c.SetParamNames("id")
+	c.SetParamValues("99")
+	c.Set("user_id", "actor1")
+
+	err := h.Update(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandler_Update_Returns200WhenSuccess(t *testing.T) {
+	store := &mockEventStore{
+		LoadFn: func(_ context.Context, _, id string, _ int) ([]eventstore.Event, error) {
+			return []eventstore.Event{createdEvent(id)}, nil
+		},
+		AppendFn: func(_ context.Context, _ []eventstore.Event) error { return nil },
+	}
+	h := newTestHandler(store, &mockReadRepo{})
+
+	c, rec := echoCtx(http.MethodPut, "/{{.NamePlural}}/1", `{}`)
+	c.SetParamNames("id")
+	c.SetParamValues("1")
+	c.Set("user_id", "actor1")
+
+	err := h.Update(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+}
+
+// --- Delete ---
+
+func TestHandler_Delete_Returns404WhenNotFound(t *testing.T) {
+	store := &mockEventStore{
+		LoadFn: func(_ context.Context, _, _ string, _ int) ([]eventstore.Event, error) {
+			return nil, nil
+		},
+	}
+	h := newTestHandler(store, &mockReadRepo{})
+
+	c, rec := echoCtx(http.MethodDelete, "/{{.NamePlural}}/99", "")
+	c.SetParamNames("id")
+	c.SetParamValues("99")
+	c.Set("user_id", "actor1")
+
+	err := h.Delete(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandler_Delete_Returns200WhenSuccess(t *testing.T) {
+	var deletedID string
+	store := &mockEventStore{
+		LoadFn: func(_ context.Context, _, id string, _ int) ([]eventstore.Event, error) {
+			return []eventstore.Event{createdEvent(id)}, nil
+		},
+		AppendFn: func(_ context.Context, events []eventstore.Event) error {
+			if len(events) > 0 {
+				deletedID = events[0].AggregateID()
+			}
+			return nil
+		},
+	}
+	h := newTestHandler(store, &mockReadRepo{})
+
+	c, rec := echoCtx(http.MethodDelete, "/{{.NamePlural}}/1", "")
+	c.SetParamNames("id")
+	c.SetParamValues("1")
+	c.Set("user_id", "actor1")
+
+	err := h.Delete(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, "1", deletedID)
+}

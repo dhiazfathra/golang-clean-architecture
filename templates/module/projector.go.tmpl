@@ -1,0 +1,44 @@
+package {{.Name}}
+
+import (
+	"context"
+	"strconv"
+
+	"github.com/jmoiron/sqlx"
+
+	"{{.ModPath}}/pkg/platform/eventstore"
+)
+
+type Projector struct{ db *sqlx.DB }
+
+func NewProjector(db *sqlx.DB) *Projector { return &Projector{db: db} }
+
+func (p *Projector) Name() string { return "{{.Name}}" }
+
+func (p *Projector) Handle(ctx context.Context, e eventstore.Event) error {
+	at := e.Timestamp()
+	by := e.Metadata()["user_id"]
+	switch ev := e.(type) {
+	case *{{.NameTitle}}Created:
+		entityID, _ := strconv.ParseInt(ev.AggregateID(), 10, 64)
+		_, err := p.db.ExecContext(ctx, `
+			INSERT INTO {{.Name}}_read (id, {{range .Fields}}{{.DBTag}}, {{end}}created_at, created_by, updated_at, updated_by, is_deleted)
+			VALUES ($1, {{range $i, $f := .Fields}}${{add $i 2}}, {{end}}${{add (len .Fields) 2}}, ${{add (len .Fields) 3}}, ${{add (len .Fields) 2}}, ${{add (len .Fields) 3}}, false)
+			ON CONFLICT (id) DO UPDATE SET {{range .Fields}}{{.DBTag}}=EXCLUDED.{{.DBTag}}, {{end}}updated_at=EXCLUDED.updated_at, updated_by=EXCLUDED.updated_by`,
+			entityID, {{range .Fields}}ev.{{.NameTitle}}, {{end}}at, by)
+		return err
+	case *{{.NameTitle}}Updated:
+		entityID, _ := strconv.ParseInt(ev.AggregateID(), 10, 64)
+		_, err := p.db.ExecContext(ctx, `
+			UPDATE {{.Name}}_read SET {{range $i, $f := .Fields}}{{$f.DBTag}}=${{add $i 1}}, {{end}}updated_at=${{add (len .Fields) 1}}, updated_by=${{add (len .Fields) 2}} WHERE id=${{add (len .Fields) 3}}`,
+			{{range .Fields}}ev.{{.NameTitle}}, {{end}}at, by, entityID)
+		return err
+	case *{{.NameTitle}}Deleted:
+		entityID, _ := strconv.ParseInt(ev.AggregateID(), 10, 64)
+		_, err := p.db.ExecContext(ctx,
+			`UPDATE {{.Name}}_read SET is_deleted=true, updated_at=$1, updated_by=$2 WHERE id=$3`,
+			at, by, entityID)
+		return err
+	}
+	return nil
+}

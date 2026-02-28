@@ -1,0 +1,20 @@
+package {{.Name}}
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+// TestPgReadRepository_ImplementsInterface verifies that pgReadRepo satisfies
+// the ReadRepository interface at compile time (compile-only assertion).
+func TestPgReadRepository_ImplementsInterface(t *testing.T) {
+	var _ ReadRepository = (*pgReadRepo)(nil)
+	assert.True(t, true, "pgReadRepo satisfies ReadRepository interface")
+}
+
+// TestNewPgReadRepository_ReturnsNonNil verifies the constructor wires correctly.
+func TestNewPgReadRepository_ReturnsNonNil(t *testing.T) {
+	repo := NewPgReadRepository(nil)
+	assert.NotNil(t, repo)
+}

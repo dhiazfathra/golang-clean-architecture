@@ -1,0 +1,32 @@
+package {{.Name}}
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// unknownEvent is a test-only event type not handled by the projector.
+type unknownEvent struct{}
+
+func (u *unknownEvent) AggregateID() string        { return "x" }
+func (u *unknownEvent) AggregateType() string      { return "unknown" }
+func (u *unknownEvent) EventType() string           { return "unknown.event" }
+func (u *unknownEvent) Version() int                { return 1 }
+func (u *unknownEvent) Timestamp() time.Time        { return time.Time{} }
+func (u *unknownEvent) Metadata() map[string]string { return nil }
+
+func TestProjector_Name(t *testing.T) {
+	p := NewProjector(nil)
+	assert.Equal(t, "{{.Name}}", p.Name())
+}
+
+func TestProjector_Handle_UnknownEventReturnsNil(t *testing.T) {
+	// nil db is safe because the unknown event falls through to the default branch.
+	p := NewProjector(nil)
+	err := p.Handle(context.Background(), &unknownEvent{})
+	require.NoError(t, err, "unrecognised event types must be silently ignored (return nil)")
+}

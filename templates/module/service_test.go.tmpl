@@ -1,0 +1,188 @@
+package {{.Name}}
+
+import (
+	"context"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"{{.ModPath}}/pkg/platform/eventstore"
+	"{{.ModPath}}/pkg/platform/httputil"
+)
+
+// --- hand-rolled mocks ---
+
+type mockEventStore struct {
+	AppendFn func(ctx context.Context, events []eventstore.Event) error
+	LoadFn   func(ctx context.Context, aggType, aggID string, fromVersion int) ([]eventstore.Event, error)
+}
+
+func (m *mockEventStore) Append(ctx context.Context, events []eventstore.Event) error {
+	if m.AppendFn != nil {
+		return m.AppendFn(ctx, events)
+	}
+	return nil
+}
+
+func (m *mockEventStore) Load(ctx context.Context, aggType, aggID string, fromVersion int) ([]eventstore.Event, error) {
+	if m.LoadFn != nil {
+		return m.LoadFn(ctx, aggType, aggID, fromVersion)
+	}
+	return nil, nil
+}
+
+type mockReadRepo struct {
+	GetByIDFn func(ctx context.Context, id string) (*{{.NameTitle}}ReadModel, error)
+	ListFn    func(ctx context.Context, req ListRequest) (*ListResponse, error)
+}
+
+func (m *mockReadRepo) GetByID(ctx context.Context, id string) (*{{.NameTitle}}ReadModel, error) {
+	if m.GetByIDFn != nil {
+		return m.GetByIDFn(ctx, id)
+	}
+	return nil, nil
+}
+
+func (m *mockReadRepo) List(ctx context.Context, req ListRequest) (*ListResponse, error) {
+	if m.ListFn != nil {
+		return m.ListFn(ctx, req)
+	}
+	return &ListResponse{}, nil
+}
+
+// --- Create tests ---
+
+func TestService_Create_AppendsEvent(t *testing.T) {
+	var appended []eventstore.Event
+	svc := NewService(&mockEventStore{
+		AppendFn: func(_ context.Context, events []eventstore.Event) error {
+			appended = events
+			return nil
+		},
+	}, &mockReadRepo{})
+
+	id, err := svc.Create(context.Background(), Create{{.NameTitle}}Cmd{Actor: "user1"})
+	require.NoError(t, err)
+	assert.NotEmpty(t, id)
+	require.Len(t, appended, 1)
+
+	ev, ok := appended[0].(*{{.NameTitle}}Created)
+	require.True(t, ok, "expected *{{.NameTitle}}Created event")
+	assert.Equal(t, id, ev.AggregateID())
+	assert.Equal(t, "user1", ev.Metadata()["user_id"])
+}
+
+func TestService_Create_PropagatesStoreError(t *testing.T) {
+	storeErr := errors.New("store unavailable")
+	svc := NewService(&mockEventStore{
+		AppendFn: func(_ context.Context, _ []eventstore.Event) error { return storeErr },
+	}, &mockReadRepo{})
+
+	_, err := svc.Create(context.Background(), Create{{.NameTitle}}Cmd{Actor: "user1"})
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "append")
+}
+
+// --- GetByID tests ---
+
+func TestService_GetByID_Delegates(t *testing.T) {
+	want := &{{.NameTitle}}ReadModel{ID: 42}
+	svc := NewService(&mockEventStore{}, &mockReadRepo{
+		GetByIDFn: func(_ context.Context, id string) (*{{.NameTitle}}ReadModel, error) {
+			assert.Equal(t, "42", id)
+			return want, nil
+		},
+	})
+
+	got, err := svc.GetByID(context.Background(), "42")
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+// --- List tests ---
+
+func TestService_List_Delegates(t *testing.T) {
+	want := &ListResponse{Total: 5}
+	svc := NewService(&mockEventStore{}, &mockReadRepo{
+		ListFn: func(_ context.Context, req ListRequest) (*ListResponse, error) {
+			assert.Equal(t, 1, req.Page)
+			return want, nil
+		},
+	})
+
+	got, err := svc.List(context.Background(), ListRequest{Page: 1, PageSize: 20})
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+}
+
+// --- Update tests ---
+
+func TestService_Update_NotFoundWhenNoEvents(t *testing.T) {
+	svc := NewService(&mockEventStore{
+		LoadFn: func(_ context.Context, _, _ string, _ int) ([]eventstore.Event, error) {
+			return nil, nil // empty — entity does not exist
+		},
+	}, &mockReadRepo{})
+
+	err := svc.Update(context.Background(), Update{{.NameTitle}}Cmd{ID: "999", Actor: "user1"})
+	assert.ErrorIs(t, err, httputil.ErrNotFound)
+}
+
+func TestService_Update_AppendsUpdatedEvent(t *testing.T) {
+	existingEvent := &{{.NameTitle}}Created{
+		BaseEvent: eventstore.NewBaseEvent("1", "{{.Name}}", "{{.Name}}.created", 1, nil),
+	}
+	var appended []eventstore.Event
+	svc := NewService(&mockEventStore{
+		LoadFn: func(_ context.Context, _, _ string, _ int) ([]eventstore.Event, error) {
+			return []eventstore.Event{existingEvent}, nil
+		},
+		AppendFn: func(_ context.Context, events []eventstore.Event) error {
+			appended = events
+			return nil
+		},
+	}, &mockReadRepo{})
+
+	err := svc.Update(context.Background(), Update{{.NameTitle}}Cmd{ID: "1", Actor: "user1"})
+	require.NoError(t, err)
+	require.Len(t, appended, 1)
+	_, ok := appended[0].(*{{.NameTitle}}Updated)
+	assert.True(t, ok, "expected *{{.NameTitle}}Updated event")
+}
+
+// --- Delete tests ---
+
+func TestService_Delete_NotFoundWhenNoEvents(t *testing.T) {
+	svc := NewService(&mockEventStore{
+		LoadFn: func(_ context.Context, _, _ string, _ int) ([]eventstore.Event, error) {
+			return nil, nil
+		},
+	}, &mockReadRepo{})
+
+	err := svc.Delete(context.Background(), "999", "user1")
+	assert.ErrorIs(t, err, httputil.ErrNotFound)
+}
+
+func TestService_Delete_AppendsDeletedEvent(t *testing.T) {
+	existingEvent := &{{.NameTitle}}Created{
+		BaseEvent: eventstore.NewBaseEvent("1", "{{.Name}}", "{{.Name}}.created", 1, nil),
+	}
+	var appended []eventstore.Event
+	svc := NewService(&mockEventStore{
+		LoadFn: func(_ context.Context, _, _ string, _ int) ([]eventstore.Event, error) {
+			return []eventstore.Event{existingEvent}, nil
+		},
+		AppendFn: func(_ context.Context, events []eventstore.Event) error {
+			appended = events
+			return nil
+		},
+	}, &mockReadRepo{})
+
+	err := svc.Delete(context.Background(), "1", "user1")
+	require.NoError(t, err)
+	require.Len(t, appended, 1)
+	_, ok := appended[0].(*{{.NameTitle}}Deleted)
+	assert.True(t, ok, "expected *{{.NameTitle}}Deleted event")
+}

@@ -1,0 +1,18 @@
+package {{.Name}}
+
+import (
+	"{{.ModPath}}/pkg/platform/eventstore"
+	"{{.ModPath}}/pkg/platform/rbac"
+)
+
+func init() {
+	eventstore.Register[*{{.NameTitle}}Created]("{{.Name}}.created")
+	eventstore.Register[*{{.NameTitle}}Updated]("{{.Name}}.updated")
+	eventstore.Register[*{{.NameTitle}}Deleted]("{{.Name}}.deleted")
+
+	rbac.RegisterModule(rbac.ModuleDefinition{
+		Name:         "{{.Name}}",
+		Fields:       []string{"id", {{range .Fields}}"{{.JSONTag}}", {{end}}"created_at", "created_by", "updated_at", "updated_by"},
+		DefaultPerms: rbac.FullCRUD("{{.Name}}", rbac.AllFields()),
+	})
+}

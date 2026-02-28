@@ -1,0 +1,83 @@
+package {{.Name}}
+
+import (
+	"github.com/labstack/echo/v4"
+
+	"{{.ModPath}}/pkg/platform/httputil"
+	"{{.ModPath}}/pkg/platform/rbac"
+	"{{.ModPath}}/pkg/platform/session"
+)
+
+type Handler struct{ svc *Service }
+
+func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+
+type {{.Name}}Req struct {
+{{- range .Fields}}
+	{{.NameTitle}} {{.GoType}} `json:"{{.JSONTag}}"`
+{{- end}}
+}
+
+func (h *Handler) Create(c echo.Context) error {
+	var req {{.Name}}Req
+	if err := c.Bind(&req); err != nil {
+		return httputil.BadRequest(c, "invalid body")
+	}
+	actor := session.UserID(c)
+	id, err := h.svc.Create(c.Request().Context(), Create{{.NameTitle}}Cmd{
+{{- range .Fields}}
+		{{.NameTitle}}: req.{{.NameTitle}},
+{{- end}}
+		Actor: actor,
+	})
+	if err != nil {
+		return httputil.InternalError(c, err)
+	}
+	return httputil.Created(c, map[string]string{"id": id})
+}
+
+func (h *Handler) GetByID(c echo.Context) error {
+	item, err := h.svc.GetByID(c.Request().Context(), c.Param("id"))
+	if err != nil || item == nil {
+		return httputil.NotFound(c)
+	}
+	return httputil.OK(c, rbac.FilterResponse(c, item))
+}
+
+func (h *Handler) List(c echo.Context) error {
+	req := ListRequest{Page: 1, PageSize: 20, SortBy: "created_at", SortDir: "asc"}
+	if err := c.Bind(&req); err != nil {
+		return httputil.BadRequest(c, "invalid query")
+	}
+	page, err := h.svc.List(c.Request().Context(), req)
+	if err != nil {
+		return httputil.InternalError(c, err)
+	}
+	return httputil.OK(c, rbac.FilterResponse(c, page))
+}
+
+func (h *Handler) Update(c echo.Context) error {
+	var req {{.Name}}Req
+	if err := c.Bind(&req); err != nil {
+		return httputil.BadRequest(c, "invalid body")
+	}
+	actor := session.UserID(c)
+	if err := h.svc.Update(c.Request().Context(), Update{{.NameTitle}}Cmd{
+		ID: c.Param("id"),
+{{- range .Fields}}
+		{{.NameTitle}}: req.{{.NameTitle}},
+{{- end}}
+		Actor: actor,
+	}); err != nil {
+		return httputil.NotFoundOrError(c, err)
+	}
+	return httputil.OK(c, map[string]string{"message": "updated"})
+}
+
+func (h *Handler) Delete(c echo.Context) error {
+	actor := session.UserID(c)
+	if err := h.svc.Delete(c.Request().Context(), c.Param("id"), actor); err != nil {
+		return httputil.NotFoundOrError(c, err)
+	}
+	return httputil.OK(c, map[string]string{"message": "deleted"})
+}

@@ -1,4 +1,4 @@
-.PHONY: infra-up infra-down build test migrate seed
+.PHONY: infra-up infra-down build test migrate seed generate
 
 infra-up:
 	docker compose -f deployments/docker-compose.yaml up -d
@@ -20,3 +20,7 @@ migrate:
 
 seed:
 	go run cmd/server/main.go --seed-only
+
+generate:
+	go run cmd/generate/main.go -module=$(module) -fields=$(fields)
+# Usage: make generate module=product fields="name:string,price:float64,sku:string,active:bool"

@@ -1,0 +1,11 @@
+package {{.Name}}
+
+import "{{.ModPath}}/pkg/platform/database"
+
+type {{.NameTitle}}ReadModel struct {
+	ID int64 `db:"id" json:"id"`
+{{- range .Fields}}
+	{{.NameTitle}} {{.GoType}} `db:"{{.DBTag}}" json:"{{.JSONTag}}"`
+{{- end}}
+	database.BaseReadModel
+}

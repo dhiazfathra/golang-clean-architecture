@@ -1,0 +1,18 @@
+package {{.Name}}
+
+import "context"
+
+type ReadRepository interface {
+	GetByID(ctx context.Context, id string) (*{{.NameTitle}}ReadModel, error)
+	List(ctx context.Context, req ListRequest) (*ListResponse, error)
+}
+
+type ListRequest struct {
+	Page, PageSize  int
+	SortBy, SortDir string
+}
+
+type ListResponse struct {
+	Items                            []{{.NameTitle}}ReadModel
+	Total, Page, PageSize, TotalPages int
+}
