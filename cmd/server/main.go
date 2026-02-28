@@ -11,6 +11,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
@@ -18,6 +19,9 @@ import (
 
 func main() {
 	cfg := config.MustLoad()
+	observability.Init("golang-clean-arch", cfg.Env)
+	defer observability.Stop()
+
 	db := database.MustConnect(cfg.DatabaseURL)
 	vk := session.MustConnectValkey(cfg.ValkeyURL)
 	es := eventstore.NewPgStore(db)
@@ -51,6 +55,8 @@ func main() {
 	}
 
 	e := echo.New()
+	e.Use(observability.EchoMiddleware("golang-clean-arch"))
+	e.Use(observability.RequestMetrics())
 	public := e.Group("")
 	protected := e.Group("")
 	protected.Use(session.RequireSession(sessionStore))

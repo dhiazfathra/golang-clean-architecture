@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	ddvalkey "github.com/DataDog/dd-trace-go/contrib/valkey-io/valkey-go/v2"
 	"github.com/valkey-io/valkey-go"
 )
 
@@ -18,7 +19,7 @@ func NewValkeyStore(client valkey.Client) SessionStore {
 }
 
 func MustConnectValkey(url string) valkey.Client {
-	client, err := valkey.NewClient(valkey.ClientOption{InitAddress: []string{url}})
+	client, err := ddvalkey.NewClient(valkey.ClientOption{InitAddress: []string{url}})
 	if err != nil {
 		panic(fmt.Sprintf("session: valkey connect: %v", err))
 	}

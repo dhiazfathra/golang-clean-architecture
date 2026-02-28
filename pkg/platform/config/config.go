@@ -11,6 +11,7 @@ type Config struct {
 	ListenAddr                string `yaml:"listen_addr"`
 	DatabaseURL               string `yaml:"database_url"`
 	ValkeyURL                 string `yaml:"valkey_url"`
+	Env                       string `yaml:"env"`
 	SeedSuperAdminPassword    string `yaml:"seed_super_admin_password"`
 	SeedDefaultModulePassword string `yaml:"seed_default_module_password"`
 }
@@ -18,6 +19,7 @@ type Config struct {
 func MustLoad() *Config {
 	cfg := &Config{
 		ListenAddr: ":8080",
+		Env:        "development",
 	}
 	// YAML file optional; env vars override
 	if path := os.Getenv("CONFIG_FILE"); path != "" {
@@ -34,6 +36,9 @@ func MustLoad() *Config {
 	}
 	if v := os.Getenv("VALKEY_URL"); v != "" {
 		cfg.ValkeyURL = v
+	}
+	if v := os.Getenv("ENV"); v != "" {
+		cfg.Env = v
 	}
 	if v := os.Getenv("LISTEN_ADDR"); v != "" {
 		cfg.ListenAddr = v
