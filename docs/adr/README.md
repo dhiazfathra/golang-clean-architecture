@@ -29,6 +29,7 @@ ADRs are numbered and written using the template:
 | 0014 | Field-level permission filtering via generic JSON response filter | Accepted | [0014-field-level-permission-filtering.md](0014-field-level-permission-filtering.md) |
 | 0015 | Idempotent database seeders operating through event store | Accepted | [0015-idempotent-database-seeders.md](0015-idempotent-database-seeders.md) |
 | 0016 | CLI module generator with text/template scaffolding | Accepted | [0016-cli-module-generator.md](0016-cli-module-generator.md) |
+| 0017 | Snowflake IDs for all database primary keys | Accepted | [0017-snowflake-id-generation.md](0017-snowflake-id-generation.md) |
 
 ## How to Add a New ADR
 
