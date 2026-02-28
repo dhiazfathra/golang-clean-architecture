@@ -8,6 +8,14 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
 )
 
+// orderUserProvider bridges user.Service → order.UserProvider.
+type orderUserProvider struct{ svc *user.Service }
+
+func (a *orderUserProvider) GetByID(ctx context.Context, id string) (bool, error) {
+	u, err := a.svc.GetByID(ctx, id)
+	return u != nil, err
+}
+
 // authUserAdapter bridges user.Service → auth.UserProvider.
 type authUserAdapter struct{ svc *user.Service }
 

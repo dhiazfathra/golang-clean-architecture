@@ -6,6 +6,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/auth"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/order"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
@@ -13,7 +14,6 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
-
 )
 
 func main() {
@@ -35,9 +35,14 @@ func main() {
 
 	authSvc := auth.NewService(sessionStore, &authUserAdapter{userSvc}, hasher)
 
+	orderProjector := order.NewProjector(db)
+	orderReadRepo := order.NewPgReadRepository(db)
+	orderSvc := order.NewService(es, orderReadRepo, &orderUserProvider{userSvc})
+
 	runner := eventstore.NewProjectionRunner(db, es)
 	runner.Register(rbacProjector)
 	runner.Register(userProjector)
+	runner.Register(orderProjector)
 	runner.Start(context.Background())
 
 	if err := seeder.Seed(context.Background(), rbacSvc, &seederUserAdapter{userSvc},
@@ -53,6 +58,7 @@ func main() {
 	auth.RegisterRoutes(public, protected, auth.NewHandler(authSvc))
 	rbac.RegisterRoutes(protected.Group("/admin"), rbac.NewHandler(rbacSvc), rbacSvc)
 	user.RegisterRoutes(protected, user.NewHandler(userSvc), rbacSvc)
+	order.RegisterRoutes(protected, order.NewHandler(orderSvc), rbacSvc)
 
 	e.Logger.Fatal(e.Start(cfg.ListenAddr))
 }
