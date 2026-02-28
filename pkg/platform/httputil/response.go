@@ -5,6 +5,8 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 )
 
 func OK(c echo.Context, data any) error      { return c.JSON(http.StatusOK, data) }
@@ -13,6 +15,7 @@ func BadRequest(c echo.Context, msg string) error {
 	return c.JSON(http.StatusBadRequest, map[string]string{"error": msg})
 }
 func InternalError(c echo.Context, err error) error {
+	observability.ReportError(c.Request().Context(), err)
 	return c.JSON(http.StatusInternalServerError, map[string]string{"error": "internal server error"})
 }
 func NotFound(c echo.Context) error {

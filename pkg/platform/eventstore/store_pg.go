@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/jmoiron/sqlx"
+
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 )
 
 type pgStore struct{ db *sqlx.DB }
@@ -38,7 +40,14 @@ func (s *pgStore) Append(ctx context.Context, events []Event) error {
 			return fmt.Errorf("eventstore: append: %w", err)
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	if len(events) > 0 {
+		_ = observability.Count("event.appended", int64(len(events)),
+			"aggregate_type:"+events[0].AggregateType())
+	}
+	return nil
 }
 
 func (s *pgStore) Load(ctx context.Context, aggregateType, aggregateID string, fromVersion int) ([]Event, error) {

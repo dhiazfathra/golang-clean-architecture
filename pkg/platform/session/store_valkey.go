@@ -10,6 +10,8 @@ import (
 
 	ddvalkey "github.com/DataDog/dd-trace-go/contrib/valkey-io/valkey-go/v2"
 	"github.com/valkey-io/valkey-go"
+
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 )
 
 type valkeyStore struct{ client valkey.Client }
@@ -46,6 +48,7 @@ func (s *valkeyStore) Create(ctx context.Context, userID string, ttl time.Durati
 	if err := s.client.Do(ctx, s.client.B().Set().Key(key).Value(string(data)).Ex(ttl).Build()).Error(); err != nil {
 		return nil, fmt.Errorf("session: store: %w", err)
 	}
+	_ = observability.Count("session.created", 1)
 	return sess, nil
 }
 

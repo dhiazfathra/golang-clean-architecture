@@ -7,6 +7,7 @@ require (
 	github.com/DataDog/datadog-go/v5 v5.8.3
 	github.com/DataDog/dd-trace-go/contrib/database/sql/v2 v2.6.0
 	github.com/DataDog/dd-trace-go/contrib/labstack/echo.v4/v2 v2.6.0
+	github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.6.0
 	github.com/DataDog/dd-trace-go/contrib/valkey-io/valkey-go/v2 v2.6.0
 	github.com/DataDog/dd-trace-go/v2 v2.6.0
 	github.com/bwmarrin/snowflake v0.3.0

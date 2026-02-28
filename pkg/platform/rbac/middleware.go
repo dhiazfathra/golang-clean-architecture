@@ -4,6 +4,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
@@ -16,6 +17,8 @@ func RequirePermission(svc *Service, module, action string) echo.MiddlewareFunc 
 				return httputil.InternalError(c, err)
 			}
 			if !allowed {
+				_ = observability.Count("rbac.check.denied", 1,
+					"module:"+module, "action:"+action)
 				return c.JSON(403, map[string]string{"error": "forbidden"})
 			}
 			c.Set("rbac_field_policy", policy)
