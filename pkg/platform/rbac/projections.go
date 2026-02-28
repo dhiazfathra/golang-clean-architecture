@@ -7,15 +7,15 @@ import (
 )
 
 type RoleReadModel struct {
-	ID          string `db:"id"          json:"id"`
+	ID          int64  `db:"id"          json:"id"`
 	Name        string `db:"name"        json:"name"`
 	Description string `db:"description" json:"description"`
 	database.BaseReadModel
 }
 
 type PermissionReadModel struct {
-	ID        string         `db:"id"         json:"id"`
-	RoleID    string         `db:"role_id"    json:"role_id"`
+	ID        int64          `db:"id"         json:"id"`
+	RoleID    int64          `db:"role_id"    json:"role_id"`
 	Module    string         `db:"module"     json:"module"`
 	Action    string         `db:"action"     json:"action"`
 	FieldMode string         `db:"field_mode" json:"field_mode"`
@@ -24,7 +24,7 @@ type PermissionReadModel struct {
 }
 
 type UserRoleReadModel struct {
-	UserID string `db:"user_id" json:"user_id"`
-	RoleID string `db:"role_id" json:"role_id"`
+	UserID int64 `db:"user_id" json:"user_id"`
+	RoleID int64 `db:"role_id" json:"role_id"`
 	database.BaseReadModel
 }

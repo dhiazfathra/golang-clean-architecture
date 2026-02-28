@@ -36,7 +36,7 @@ func Seed(ctx context.Context, rbacSvc *rbac.Service, userSvc UserCreator, super
 	if err := SeedSuperAdminUser(ctx, userSvc, rbacSvc, superAdminPassword); err != nil {
 		return fmt.Errorf("seed super admin user: %w", err)
 	}
-	if err := SeedModuleUsers(ctx, userSvc, defaultModulePassword); err != nil {
+	if err := SeedModuleUsers(ctx, userSvc, rbacSvc, defaultModulePassword); err != nil {
 		return fmt.Errorf("seed module users: %w", err)
 	}
 	return nil

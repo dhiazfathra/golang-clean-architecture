@@ -2,6 +2,7 @@ package seeder_test
 
 import (
 	"context"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -86,7 +87,7 @@ func (m *mockUserCreator) CreateUser(ctx context.Context, cmd seeder.CreateUserC
 	if m.CreateUserFn != nil {
 		return m.CreateUserFn(ctx, cmd)
 	}
-	return "user_id_1", nil
+	return "100", nil
 }
 func (m *mockUserCreator) GetByEmail(ctx context.Context, email string) (*seeder.UserRecord, error) {
 	if m.GetByEmailFn != nil {
@@ -111,6 +112,16 @@ func newRbacService(store eventstore.EventStore, repo rbac.ReadRepository) *rbac
 		repo = &mockRepo{}
 	}
 	return rbac.NewService(store, repo)
+}
+
+// stubRbacSvc returns an rbac.Service whose GetRoleByName always returns a role
+// with the given id. Use when role lookup must succeed but the exact ID doesn't matter.
+func stubRbacSvc(id int64) *rbac.Service {
+	return newRbacService(nil, &mockRepo{
+		GetRoleByNameFn: func(_ context.Context, name string) (*rbac.RoleReadModel, error) {
+			return &rbac.RoleReadModel{ID: id, Name: name}, nil
+		},
+	})
 }
 
 // registerTestModule registers a temporary module for testing. Caller must deregister
@@ -155,7 +166,7 @@ func TestSeedSuperAdminRole_IdempotentWhenRoleExists(t *testing.T) {
 	}
 	repo := &mockRepo{
 		GetRoleByNameFn: func(_ context.Context, _ string) (*rbac.RoleReadModel, error) {
-			return &rbac.RoleReadModel{ID: "role_super_admin", Name: "super_admin"}, nil
+			return &rbac.RoleReadModel{ID: int64(1), Name: "super_admin"}, nil
 		},
 	}
 	svc := newRbacService(store, repo)
@@ -177,21 +188,18 @@ func TestSeedModuleRoles_CreatesTwoRolesForTwoModules(t *testing.T) {
 	registerTestModule(mod1)
 	registerTestModule(mod2)
 
-	created := map[string]bool{}
+	var appendCalls int
 	store := &mockEventStore{
 		AppendFn: func(_ context.Context, events []eventstore.Event) error {
 			if len(events) > 0 {
-				created[events[0].AggregateID()] = true
+				appendCalls++
 			}
 			return nil
 		},
 	}
 	repo := &mockRepo{
 		// Return nil for both module roles (not yet seeded)
-		GetRoleByNameFn: func(_ context.Context, name string) (*rbac.RoleReadModel, error) {
-			if name == mod1+"_admin" || name == mod2+"_admin" {
-				return nil, nil
-			}
+		GetRoleByNameFn: func(_ context.Context, _ string) (*rbac.RoleReadModel, error) {
 			return nil, nil
 		},
 	}
@@ -199,8 +207,8 @@ func TestSeedModuleRoles_CreatesTwoRolesForTwoModules(t *testing.T) {
 
 	err := seeder.SeedModuleRoles(context.Background(), svc)
 	require.NoError(t, err)
-	assert.True(t, created["role_"+mod1+"_admin"], "role for %s should be created", mod1)
-	assert.True(t, created["role_"+mod2+"_admin"], "role for %s should be created", mod2)
+	// At minimum the two newly registered modules must each produce an Append call.
+	assert.GreaterOrEqual(t, appendCalls, 2, "expected at least 2 CreateRole calls")
 }
 
 func TestSeedModuleRoles_SkipsExistingRoles(t *testing.T) {
@@ -215,25 +223,22 @@ func TestSeedModuleRoles_SkipsExistingRoles(t *testing.T) {
 		},
 	}
 	repo := &mockRepo{
-		// Report role as already existing
-		GetRoleByNameFn: func(_ context.Context, name string) (*rbac.RoleReadModel, error) {
-			if name == mod+"_admin" {
-				return &rbac.RoleReadModel{ID: "role_" + mod + "_admin", Name: name}, nil
-			}
-			return nil, nil
+		// Report ALL roles as already existing so nothing is created
+		GetRoleByNameFn: func(_ context.Context, _ string) (*rbac.RoleReadModel, error) {
+			return &rbac.RoleReadModel{ID: int64(999), Name: mod + "_admin"}, nil
 		},
 	}
 	svc := newRbacService(store, repo)
 
 	err := seeder.SeedModuleRoles(context.Background(), svc)
 	require.NoError(t, err)
-	// createCalled may be > 0 for OTHER modules already registered — just verify it
-	// wasn't called for mod (no event with that aggregate ID should appear)
+	assert.Equal(t, 0, createCalled, "CreateRole must not be called when all roles already exist")
 }
 
 // --- SeedSuperAdminUser ---
 
 func TestSeedSuperAdminUser_CreatesUserAndAssignsRole(t *testing.T) {
+	const superAdminRoleID = int64(42)
 	var createCalled, assignCalled int
 	userSvc := &mockUserCreator{
 		GetByEmailFn: func(_ context.Context, _ string) (*seeder.UserRecord, error) {
@@ -243,12 +248,12 @@ func TestSeedSuperAdminUser_CreatesUserAndAssignsRole(t *testing.T) {
 			createCalled++
 			assert.Equal(t, "admin@system.local", cmd.Email)
 			assert.Equal(t, "system", cmd.Actor)
-			return "user_super_admin", nil
+			return "200", nil
 		},
 		AssignRoleFn: func(_ context.Context, userID, roleID, actor string) error {
 			assignCalled++
-			assert.Equal(t, "user_super_admin", userID)
-			assert.Equal(t, "role_super_admin", roleID)
+			assert.Equal(t, "200", userID)
+			assert.Equal(t, strconv.FormatInt(superAdminRoleID, 10), roleID)
 			assert.Equal(t, "system", actor)
 			return nil
 		},
@@ -256,7 +261,7 @@ func TestSeedSuperAdminUser_CreatesUserAndAssignsRole(t *testing.T) {
 	repo := &mockRepo{
 		GetRoleByNameFn: func(_ context.Context, name string) (*rbac.RoleReadModel, error) {
 			if name == "super_admin" {
-				return &rbac.RoleReadModel{ID: "role_super_admin", Name: "super_admin"}, nil
+				return &rbac.RoleReadModel{ID: superAdminRoleID, Name: "super_admin"}, nil
 			}
 			return nil, nil
 		},
@@ -300,11 +305,12 @@ func TestSeedModuleUsers_UsesDefaultPasswordWhenEnvNotSet(t *testing.T) {
 		},
 		CreateUserFn: func(_ context.Context, cmd seeder.CreateUserCmd) (string, error) {
 			passwords[cmd.Email] = cmd.Password
-			return "uid_" + cmd.Email, nil
+			return "300", nil
 		},
 	}
+	rbacSvc := stubRbacSvc(int64(1))
 
-	err := seeder.SeedModuleUsers(context.Background(), userSvc, "defaultPass")
+	err := seeder.SeedModuleUsers(context.Background(), userSvc, rbacSvc, "defaultPass")
 	require.NoError(t, err)
 	assert.Equal(t, "defaultPass", passwords[mod+"_admin@system.local"])
 }
@@ -322,11 +328,12 @@ func TestSeedModuleUsers_UsesEnvPasswordWhenSet(t *testing.T) {
 		},
 		CreateUserFn: func(_ context.Context, cmd seeder.CreateUserCmd) (string, error) {
 			passwords[cmd.Email] = cmd.Password
-			return "uid_" + cmd.Email, nil
+			return "301", nil
 		},
 	}
+	rbacSvc := stubRbacSvc(int64(1))
 
-	err := seeder.SeedModuleUsers(context.Background(), userSvc, "defaultPass")
+	err := seeder.SeedModuleUsers(context.Background(), userSvc, rbacSvc, "defaultPass")
 	require.NoError(t, err)
 	assert.Equal(t, "envPassword!", passwords[mod+"_admin@system.local"])
 }
@@ -335,7 +342,8 @@ func TestSeedModuleUsers_AssignsCorrectRoleID(t *testing.T) {
 	mod := "seedtest_zeta"
 	registerTestModule(mod)
 
-	assignedRoles := map[string]string{} // userID -> roleID
+	const roleID = int64(101)
+	assignedRoles := map[string]string{} // userID -> roleID string
 	userSvc := &mockUserCreator{
 		GetByEmailFn: func(_ context.Context, _ string) (*seeder.UserRecord, error) {
 			return nil, nil
@@ -343,15 +351,23 @@ func TestSeedModuleUsers_AssignsCorrectRoleID(t *testing.T) {
 		CreateUserFn: func(_ context.Context, cmd seeder.CreateUserCmd) (string, error) {
 			return "uid_" + cmd.Email, nil
 		},
-		AssignRoleFn: func(_ context.Context, userID, roleID, _ string) error {
-			assignedRoles[userID] = roleID
+		AssignRoleFn: func(_ context.Context, userID, rid, _ string) error {
+			assignedRoles[userID] = rid
 			return nil
 		},
 	}
+	rbacSvc := newRbacService(nil, &mockRepo{
+		GetRoleByNameFn: func(_ context.Context, name string) (*rbac.RoleReadModel, error) {
+			return &rbac.RoleReadModel{ID: roleID, Name: name}, nil
+		},
+	})
 
-	err := seeder.SeedModuleUsers(context.Background(), userSvc, "pw")
+	err := seeder.SeedModuleUsers(context.Background(), userSvc, rbacSvc, "pw")
 	require.NoError(t, err)
-	assert.Equal(t, "role_"+mod+"_admin", assignedRoles["uid_"+mod+"_admin@system.local"])
+	assert.Equal(t,
+		strconv.FormatInt(roleID, 10),
+		assignedRoles["uid_"+mod+"_admin@system.local"],
+	)
 }
 
 func TestSeedModuleUsers_SkipsExistingUsers(t *testing.T) {
@@ -373,8 +389,9 @@ func TestSeedModuleUsers_SkipsExistingUsers(t *testing.T) {
 			return "uid", nil
 		},
 	}
+	rbacSvc := stubRbacSvc(int64(1))
 
-	err := seeder.SeedModuleUsers(context.Background(), userSvc, "pw")
+	err := seeder.SeedModuleUsers(context.Background(), userSvc, rbacSvc, "pw")
 	require.NoError(t, err)
 	assert.Equal(t, 0, createCalled, "CreateUser must not be called for existing user")
 }

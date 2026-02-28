@@ -2,6 +2,7 @@ package rbac
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/jmoiron/sqlx"
 
@@ -40,7 +41,7 @@ func (r *pgReadRepo) GetRolesForUser(ctx context.Context, userID string) ([]stri
 	}
 	ids := make([]string, len(rows))
 	for i, row := range rows {
-		ids[i] = row.RoleID
+		ids[i] = strconv.FormatInt(row.RoleID, 10)
 	}
 	return ids, nil
 }

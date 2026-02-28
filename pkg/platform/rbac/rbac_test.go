@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/labstack/echo/v4"
@@ -320,7 +321,8 @@ func TestCreateRole_AppendsEvent(t *testing.T) {
 
 	rc, ok := appended[0].(*RoleCreated)
 	require.True(t, ok)
-	assert.Equal(t, "role_admin", rc.AggregateID())
+	_, parseErr := strconv.ParseInt(rc.AggregateID(), 10, 64)
+	assert.NoError(t, parseErr, "aggregate ID must be a valid snowflake decimal string")
 	assert.Equal(t, "admin", rc.Name)
 	assert.Equal(t, "system", rc.Metadata()["user_id"])
 }

@@ -2,14 +2,14 @@ package user
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
+	"strconv"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/auth"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/snowflake"
 )
 
 type CreateUserCmd struct {
@@ -37,7 +37,7 @@ func (s *Service) CreateUser(ctx context.Context, cmd CreateUserCmd) (string, er
 	if err != nil {
 		return "", fmt.Errorf("hash password: %w", err)
 	}
-	id := newID("usr")
+	id := snowflake.NewStringID()
 	agg := NewUserAggregate(id)
 	meta := map[string]string{"user_id": cmd.Actor}
 	agg.Apply(&UserCreated{
@@ -115,7 +115,12 @@ func (s *Service) GetByEmailForAuth(ctx context.Context, email string) (*auth.Us
 	if err != nil || u == nil {
 		return nil, err
 	}
-	return &auth.UserRecord{ID: u.ID, Email: u.Email, PassHash: u.PassHash, Active: u.Active}, nil
+	return &auth.UserRecord{
+		ID:       strconv.FormatInt(u.ID, 10),
+		Email:    u.Email,
+		PassHash: u.PassHash,
+		Active:   u.Active,
+	}, nil
 }
 
 // CreateUserForSeeder satisfies seeder.UserCreator via adapter.
@@ -129,11 +134,5 @@ func (s *Service) GetByEmailForSeeder(ctx context.Context, email string) (*seede
 	if err != nil || u == nil {
 		return nil, err
 	}
-	return &seeder.UserRecord{ID: u.ID, Email: u.Email}, nil
-}
-
-func newID(prefix string) string {
-	b := make([]byte, 8)
-	rand.Read(b) //nolint:errcheck
-	return prefix + "_" + hex.EncodeToString(b)
+	return &seeder.UserRecord{ID: strconv.FormatInt(u.ID, 10), Email: u.Email}, nil
 }

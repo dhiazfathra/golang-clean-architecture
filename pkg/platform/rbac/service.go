@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/snowflake"
 )
 
 type CreateRoleCmd struct {
@@ -24,7 +25,7 @@ func NewService(store eventstore.EventStore, repo ReadRepository) *Service {
 }
 
 func (s *Service) CreateRole(ctx context.Context, cmd CreateRoleCmd) error {
-	id := "role_" + cmd.Name
+	id := snowflake.NewStringID()
 	meta := map[string]string{"user_id": cmd.Actor}
 	agg := newRoleAggregate(id)
 	e := &RoleCreated{
