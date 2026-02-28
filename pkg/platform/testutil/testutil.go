@@ -5,6 +5,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
+	"github.com/valkey-io/valkey-go"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 )
@@ -24,7 +25,12 @@ func SetupTestDB(t *testing.T) *sqlx.DB {
 	return db
 }
 
-func SetupTestValkey(t *testing.T) string {
+func SetupTestValkey(t *testing.T) valkey.Client {
 	t.Helper()
-	return "localhost:6379"
+	client, err := valkey.NewClient(valkey.ClientOption{InitAddress: []string{"localhost:6379"}})
+	if err != nil {
+		t.Skipf("valkey not available: %v", err)
+	}
+	t.Cleanup(func() { client.Close() })
+	return client
 }

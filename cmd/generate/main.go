@@ -77,8 +77,18 @@ func main() {
 	renderTo(spec, "templates/module/migration.up.sql.tmpl", migUp)
 	renderTo(spec, "templates/module/migration.down.sql.tmpl", migDown)
 
+	// OpenAPI path fragment (merge into api/openapi.yaml manually)
+	apiPathsDir := filepath.Join("api", "paths")
+	if err := os.MkdirAll(apiPathsDir, 0o755); err != nil {
+		panic(err)
+	}
+	renderTo(spec, "templates/module/openapi_paths.yaml.tmpl",
+		filepath.Join(apiPathsDir, spec.Name+".yaml"))
+
 	fmt.Printf("\n✓ Generated module: %s/ (9 files + 5 test files)\n", outDir)
 	fmt.Printf("✓ Generated migration: %s\n\n", migUp)
+	fmt.Printf("✓ Generated OpenAPI fragment: api/paths/%s.yaml\n", spec.Name)
+	fmt.Printf("  → Merge into api/openapi.yaml paths section\n\n")
 	fmt.Printf("Add to cmd/server/main.go:\n\n")
 	fmt.Printf("    %[1]sProjector := %[1]s.NewProjector(db)\n", spec.Name)
 	fmt.Printf("    runner.Register(%[1]sProjector)\n", spec.Name)

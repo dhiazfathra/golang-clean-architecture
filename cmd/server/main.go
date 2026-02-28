@@ -5,12 +5,15 @@ import (
 
 	"github.com/labstack/echo/v4"
 
+	goapi "github.com/dhiazfathra/golang-clean-architecture/api"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/auth"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/order"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/docs"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/health"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
@@ -65,6 +68,18 @@ func main() {
 	rbac.RegisterRoutes(protected.Group("/admin"), rbac.NewHandler(rbacSvc), rbacSvc)
 	user.RegisterRoutes(protected, user.NewHandler(userSvc), rbacSvc)
 	order.RegisterRoutes(protected, order.NewHandler(orderSvc), rbacSvc)
+
+	// Health probes — on root Echo instance, no auth middleware.
+	healthHandler := health.NewHandler(db, vk)
+	e.GET("/health", healthHandler.Live)
+	e.GET("/health/ready", healthHandler.Ready)
+
+	// API docs — only in non-production environments.
+	if cfg.Env != "production" {
+		docsHandler := docs.NewHandler(goapi.Files)
+		public.GET("/docs", docsHandler.ScalarUI)
+		public.GET("/openapi.yaml", docsHandler.OpenAPISpec)
+	}
 
 	e.Logger.Fatal(e.Start(cfg.ListenAddr))
 }
