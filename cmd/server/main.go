@@ -9,6 +9,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
@@ -23,7 +24,12 @@ func main() {
 	// userSvc wired in M5; pass nil placeholder until then
 	authSvc := auth.NewService(sessionStore, nil, hasher)
 
+	rbacProjector := rbac.NewProjector(db)
+	rbacRepo := rbac.NewPgReadRepository(db)
+	rbacSvc := rbac.NewService(es, rbacRepo)
+
 	runner := eventstore.NewProjectionRunner(db, es)
+	runner.Register(rbacProjector)
 	runner.Start(context.Background())
 
 	e := echo.New()
@@ -32,6 +38,7 @@ func main() {
 	protected.Use(session.RequireSession(sessionStore))
 
 	auth.RegisterRoutes(public, protected, auth.NewHandler(authSvc))
+	rbac.RegisterRoutes(protected.Group("/admin"), rbac.NewHandler(rbacSvc), rbacSvc)
 
 	e.Logger.Fatal(e.Start(cfg.ListenAddr))
 }
