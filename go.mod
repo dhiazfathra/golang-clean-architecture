@@ -4,6 +4,11 @@ go 1.24.9
 
 require (
 	github.com/DATA-DOG/go-sqlmock v1.5.2
+	github.com/DataDog/datadog-go/v5 v5.8.3
+	github.com/DataDog/dd-trace-go/contrib/database/sql/v2 v2.6.0
+	github.com/DataDog/dd-trace-go/contrib/labstack/echo.v4/v2 v2.6.0
+	github.com/DataDog/dd-trace-go/contrib/valkey-io/valkey-go/v2 v2.6.0
+	github.com/DataDog/dd-trace-go/v2 v2.6.0
 	github.com/bwmarrin/snowflake v0.3.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/labstack/echo/v4 v4.15.1
@@ -24,10 +29,6 @@ require (
 	github.com/DataDog/datadog-agent/pkg/util/log v0.71.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/util/scrubber v0.71.0 // indirect
 	github.com/DataDog/datadog-agent/pkg/version v0.71.0 // indirect
-	github.com/DataDog/datadog-go/v5 v5.8.3 // indirect
-	github.com/DataDog/dd-trace-go/contrib/labstack/echo.v4/v2 v2.6.0 // indirect
-	github.com/DataDog/dd-trace-go/contrib/valkey-io/valkey-go/v2 v2.6.0 // indirect
-	github.com/DataDog/dd-trace-go/v2 v2.6.0 // indirect
 	github.com/DataDog/go-libddwaf/v4 v4.8.0 // indirect
 	github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20250721125240-fdf1ef85b633 // indirect
 	github.com/DataDog/go-sqllexer v0.1.8 // indirect

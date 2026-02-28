@@ -2,6 +2,7 @@ package observability
 
 import (
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
@@ -45,6 +46,9 @@ func Init(serviceName, env string) {
 		slog.Warn("observability: statsd init failed", "error", err)
 		statsdClient = &statsd.NoOpClient{}
 	}
+
+	jsonHandler := slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo})
+	slog.SetDefault(slog.New(NewTracedHandler(jsonHandler)))
 }
 
 // Stop flushes and stops the tracer and profiler. Call via defer in main().
