@@ -2,20 +2,36 @@ package main
 
 import (
 	"context"
-	"log"
 
+	"github.com/labstack/echo/v4"
+
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/auth"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
 func main() {
 	cfg := config.MustLoad()
 	db := database.MustConnect(cfg.DatabaseURL)
-	_ = db
+	vk := session.MustConnectValkey(cfg.ValkeyURL)
 	es := eventstore.NewPgStore(db)
-	_ = es
+
+	sessionStore := session.NewValkeyStore(vk)
+	hasher := auth.NewBcryptHasher()
+	// userSvc wired in M5; pass nil placeholder until then
+	authSvc := auth.NewService(sessionStore, nil, hasher)
+
 	runner := eventstore.NewProjectionRunner(db, es)
 	runner.Start(context.Background())
-	log.Printf("server would start on %s", cfg.ListenAddr)
+
+	e := echo.New()
+	public := e.Group("")
+	protected := e.Group("")
+	protected.Use(session.RequireSession(sessionStore))
+
+	auth.RegisterRoutes(public, protected, auth.NewHandler(authSvc))
+
+	e.Logger.Fatal(e.Start(cfg.ListenAddr))
 }
