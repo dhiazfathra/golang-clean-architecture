@@ -1,9 +1,15 @@
 package {{.Name}}
 
 import (
+	"context"
+	"database/sql"
 	"testing"
 
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"{{.ModPath}}/pkg/platform/testutil"
 )
 
 // TestPgReadRepository_ImplementsInterface verifies that pgReadRepo satisfies
@@ -17,4 +23,53 @@ func TestPgReadRepository_ImplementsInterface(t *testing.T) {
 func TestNewPgReadRepository_ReturnsNonNil(t *testing.T) {
 	repo := NewPgReadRepository(nil)
 	assert.NotNil(t, repo)
+}
+
+// TestPgReadRepo_GetByID_InvalidID covers the strconv.ParseInt error branch.
+func TestPgReadRepo_GetByID_InvalidID(t *testing.T) {
+	repo := NewPgReadRepository(nil) // nil db is never reached for invalid IDs
+	_, err := repo.GetByID(context.Background(), "not-a-number")
+	require.Error(t, err)
+}
+
+// TestPgReadRepo_GetByID_CallsDB covers the database.Get call path.
+func TestPgReadRepo_GetByID_CallsDB(t *testing.T) {
+	db, mock := testutil.NewMockDB(t)
+	repo := NewPgReadRepository(db)
+
+	// database.Get wraps the query; any SELECT error exercises the return path.
+	mock.ExpectQuery("SELECT").WillReturnError(sql.ErrNoRows)
+
+	_, err := repo.GetByID(context.Background(), "1")
+	require.Error(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestPgReadRepo_List_DBError covers the error return from PaginatedSelect.
+func TestPgReadRepo_List_DBError(t *testing.T) {
+	db, mock := testutil.NewMockDB(t)
+	repo := NewPgReadRepository(db)
+
+	mock.ExpectQuery("SELECT COUNT").WillReturnError(sql.ErrNoRows)
+
+	_, err := repo.List(context.Background(), ListRequest{Page: 1, PageSize: 10})
+	require.Error(t, err)
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+// TestPgReadRepo_List_Success covers the happy path returning a ListResponse.
+func TestPgReadRepo_List_Success(t *testing.T) {
+	db, mock := testutil.NewMockDB(t)
+	repo := NewPgReadRepository(db)
+
+	cols := []string{"id", {{range .Fields}}"{{.DBTag}}", {{end}}"created_at", "created_by", "updated_at", "updated_by", "is_deleted"}
+	mock.ExpectQuery("SELECT COUNT").
+		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(0))
+	mock.ExpectQuery("SELECT").
+		WillReturnRows(sqlmock.NewRows(cols))
+
+	res, err := repo.List(context.Background(), ListRequest{Page: 1, PageSize: 10})
+	require.NoError(t, err)
+	assert.NotNil(t, res)
+	require.NoError(t, mock.ExpectationsWereMet())
 }

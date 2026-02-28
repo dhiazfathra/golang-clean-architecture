@@ -3,6 +3,7 @@ package {{.Name}}
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -59,6 +60,31 @@ func TestHandler_Create_Returns201(t *testing.T) {
 	var body map[string]string
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
 	assert.NotEmpty(t, body["id"])
+}
+
+func TestHandler_Create_Returns400OnBadBody(t *testing.T) {
+	h := newTestHandler(&mockEventStore{}, &mockReadRepo{})
+
+	c, rec := echoCtx(http.MethodPost, "/{{.NamePlural}}", `{invalid`)
+	err := h.Create(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandler_Create_Returns500OnServiceError(t *testing.T) {
+	store := &mockEventStore{
+		AppendFn: func(_ context.Context, _ []eventstore.Event) error {
+			return errors.New("store down")
+		},
+	}
+	h := newTestHandler(store, &mockReadRepo{})
+
+	c, rec := echoCtx(http.MethodPost, "/{{.NamePlural}}", `{}`)
+	c.Set("user_id", "actor1")
+
+	err := h.Create(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 // --- GetByID ---
@@ -121,7 +147,47 @@ func TestHandler_List_Returns200(t *testing.T) {
 	assert.EqualValues(t, 2, body["Total"])
 }
 
+func TestHandler_List_Returns400OnBadQuery(t *testing.T) {
+	h := newTestHandler(&mockEventStore{}, &mockReadRepo{})
+
+	e := echo.New()
+	// Sending a non-integer for the "page" query param forces a bind error on Page int.
+	req := httptest.NewRequest(http.MethodGet, "/{{.NamePlural}}?page=not_a_number", nil)
+	rec := httptest.NewRecorder()
+	c := e.NewContext(req, rec)
+
+	err := h.List(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandler_List_Returns500OnServiceError(t *testing.T) {
+	repo := &mockReadRepo{
+		ListFn: func(_ context.Context, _ ListRequest) (*ListResponse, error) {
+			return nil, errors.New("db error")
+		},
+	}
+	h := newTestHandler(&mockEventStore{}, repo)
+
+	c, rec := echoCtx(http.MethodGet, "/{{.NamePlural}}", "")
+	err := h.List(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
 // --- Update ---
+
+func TestHandler_Update_Returns400OnBadBody(t *testing.T) {
+	h := newTestHandler(&mockEventStore{}, &mockReadRepo{})
+
+	c, rec := echoCtx(http.MethodPut, "/{{.NamePlural}}/1", `{invalid`)
+	c.SetParamNames("id")
+	c.SetParamValues("1")
+
+	err := h.Update(c)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+}
 
 func TestHandler_Update_Returns404WhenNotFound(t *testing.T) {
 	store := &mockEventStore{

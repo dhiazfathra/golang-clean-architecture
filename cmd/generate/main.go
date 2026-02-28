@@ -69,6 +69,7 @@ func main() {
 	renderTo(spec, "templates/module/handler_test.go.tmpl", filepath.Join(outDir, "handler_test.go"))
 	renderTo(spec, "templates/module/projector_test.go.tmpl", filepath.Join(outDir, "projector_test.go"))
 	renderTo(spec, "templates/module/repository_pg_test.go.tmpl", filepath.Join(outDir, "repository_pg_test.go"))
+	renderTo(spec, "templates/module/routes_test.go.tmpl", filepath.Join(outDir, "routes_test.go"))
 
 	// Migrations
 	migUp := filepath.Join("migrations", spec.Timestamp+"_"+spec.Name+"_read.up.sql")
@@ -76,7 +77,7 @@ func main() {
 	renderTo(spec, "templates/module/migration.up.sql.tmpl", migUp)
 	renderTo(spec, "templates/module/migration.down.sql.tmpl", migDown)
 
-	fmt.Printf("\n✓ Generated module: %s/ (9 files + 4 test files)\n", outDir)
+	fmt.Printf("\n✓ Generated module: %s/ (9 files + 5 test files)\n", outDir)
 	fmt.Printf("✓ Generated migration: %s\n\n", migUp)
 	fmt.Printf("Add to cmd/server/main.go:\n\n")
 	fmt.Printf("    %[1]sProjector := %[1]s.NewProjector(db)\n", spec.Name)

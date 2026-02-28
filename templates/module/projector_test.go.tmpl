@@ -5,8 +5,12 @@ import (
 	"testing"
 	"time"
 
+	sqlmock "github.com/DATA-DOG/go-sqlmock"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"{{.ModPath}}/pkg/platform/eventstore"
+	"{{.ModPath}}/pkg/platform/testutil"
 )
 
 // unknownEvent is a test-only event type not handled by the projector.
@@ -29,4 +33,49 @@ func TestProjector_Handle_UnknownEventReturnsNil(t *testing.T) {
 	p := NewProjector(nil)
 	err := p.Handle(context.Background(), &unknownEvent{})
 	require.NoError(t, err, "unrecognised event types must be silently ignored (return nil)")
+}
+
+func TestProjector_Handle_Created(t *testing.T) {
+	db, mock := testutil.NewMockDB(t)
+	p := NewProjector(db)
+
+	mock.ExpectExec("INSERT INTO {{.Name}}_read").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	ev := &{{.NameTitle}}Created{
+		BaseEvent: eventstore.NewBaseEvent("1", "{{.Name}}", "{{.Name}}.created", 1,
+			map[string]string{"user_id": "u1"}),
+	}
+	require.NoError(t, p.Handle(context.Background(), ev))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestProjector_Handle_Updated(t *testing.T) {
+	db, mock := testutil.NewMockDB(t)
+	p := NewProjector(db)
+
+	mock.ExpectExec("UPDATE {{.Name}}_read").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	ev := &{{.NameTitle}}Updated{
+		BaseEvent: eventstore.NewBaseEvent("1", "{{.Name}}", "{{.Name}}.updated", 2,
+			map[string]string{"user_id": "u1"}),
+	}
+	require.NoError(t, p.Handle(context.Background(), ev))
+	require.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestProjector_Handle_Deleted(t *testing.T) {
+	db, mock := testutil.NewMockDB(t)
+	p := NewProjector(db)
+
+	mock.ExpectExec("UPDATE {{.Name}}_read SET is_deleted").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	ev := &{{.NameTitle}}Deleted{
+		BaseEvent: eventstore.NewBaseEvent("1", "{{.Name}}", "{{.Name}}.deleted", 3,
+			map[string]string{"user_id": "u1"}),
+	}
+	require.NoError(t, p.Handle(context.Background(), ev))
+	require.NoError(t, mock.ExpectationsWereMet())
 }

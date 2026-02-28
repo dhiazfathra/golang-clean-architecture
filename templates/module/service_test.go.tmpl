@@ -186,3 +186,41 @@ func TestService_Delete_AppendsDeletedEvent(t *testing.T) {
 	_, ok := appended[0].(*{{.NameTitle}}Deleted)
 	assert.True(t, ok, "expected *{{.NameTitle}}Deleted event")
 }
+
+// --- Update store error propagation ---
+
+func TestService_Update_PropagatesStoreError(t *testing.T) {
+	storeErr := errors.New("store unavailable")
+	existingEvent := &{{.NameTitle}}Created{
+		BaseEvent: eventstore.NewBaseEvent("1", "{{.Name}}", "{{.Name}}.created", 1, nil),
+	}
+	svc := NewService(&mockEventStore{
+		LoadFn: func(_ context.Context, _, _ string, _ int) ([]eventstore.Event, error) {
+			return []eventstore.Event{existingEvent}, nil
+		},
+		AppendFn: func(_ context.Context, _ []eventstore.Event) error { return storeErr },
+	}, &mockReadRepo{})
+
+	err := svc.Update(context.Background(), Update{{.NameTitle}}Cmd{ID: "1", Actor: "user1"})
+	require.Error(t, err)
+	assert.ErrorIs(t, err, storeErr)
+}
+
+// --- Delete store error propagation ---
+
+func TestService_Delete_PropagatesStoreError(t *testing.T) {
+	storeErr := errors.New("store unavailable")
+	existingEvent := &{{.NameTitle}}Created{
+		BaseEvent: eventstore.NewBaseEvent("1", "{{.Name}}", "{{.Name}}.created", 1, nil),
+	}
+	svc := NewService(&mockEventStore{
+		LoadFn: func(_ context.Context, _, _ string, _ int) ([]eventstore.Event, error) {
+			return []eventstore.Event{existingEvent}, nil
+		},
+		AppendFn: func(_ context.Context, _ []eventstore.Event) error { return storeErr },
+	}, &mockReadRepo{})
+
+	err := svc.Delete(context.Background(), "1", "user1")
+	require.Error(t, err)
+	assert.ErrorIs(t, err, storeErr)
+}

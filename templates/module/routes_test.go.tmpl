@@ -1,0 +1,23 @@
+package {{.Name}}
+
+import (
+	"testing"
+
+	"github.com/labstack/echo/v4"
+	"github.com/stretchr/testify/assert"
+)
+
+// TestRegisterRoutes_RegistersFiveRoutes verifies that RegisterRoutes wires all
+// five CRUD endpoints onto the group (covers the RegisterRoutes function body).
+func TestRegisterRoutes_RegistersFiveRoutes(t *testing.T) {
+	e := echo.New()
+	g := e.Group("")
+	h := newTestHandler(&mockEventStore{}, &mockReadRepo{})
+
+	// rbacSvc may be nil: RequirePermission only captures it in a closure at
+	// registration time; it is not called until a request is dispatched.
+	RegisterRoutes(g, h, nil)
+
+	assert.Len(t, e.Routes(), 5,
+		"expected 5 routes: POST, GET/:id, GET, PUT/:id, DELETE/:id")
+}
