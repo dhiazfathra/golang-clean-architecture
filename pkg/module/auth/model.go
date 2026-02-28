@@ -1,6 +1,9 @@
 package auth
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+)
 
 type LoginRequest struct {
 	Email    string `json:"email"    validate:"required,email"`
@@ -19,7 +22,7 @@ func (r *LoginRequest) Validate() error {
 
 // UserProvider is satisfied by user.Service — avoids import cycle.
 type UserProvider interface {
-	GetByEmail(ctx interface{ Value(any) any }, email string) (*UserRecord, error)
+	GetByEmail(ctx context.Context, email string) (*UserRecord, error)
 }
 
 type UserRecord struct {
