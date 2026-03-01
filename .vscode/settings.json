@@ -1,0 +1,6 @@
+{
+  "sonarlint.connectedMode.project": {
+    "connectionId": "dhiazfathra",
+    "projectKey": "dhiazfathra_golang-clean-architecture"
+  }
+}
