@@ -54,7 +54,7 @@ func TestValidate_InvalidEnv(t *testing.T) {
 }
 
 func TestValidate_ValidEnvValues(t *testing.T) {
-	for _, env := range []string{"development", "staging", "production"} {
+	for _, env := range []string{"development", "staging", "production", "test"} {
 		cfg := validConfig()
 		cfg.Env = env
 		assert.NoError(t, cfg.validate(), "env=%s should be valid", env)

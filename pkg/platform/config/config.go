@@ -119,7 +119,7 @@ func (c *Config) validate() error {
 	if c.ValkeyURL == "" {
 		errs = append(errs, "VALKEY_URL is required")
 	}
-	validEnvs := map[string]bool{"development": true, "staging": true, "production": true}
+	validEnvs := map[string]bool{"development": true, "staging": true, "production": true, "test": true}
 	if !validEnvs[c.Env] {
 		errs = append(errs, fmt.Sprintf("ENV must be development|staging|production|test, got %q", c.Env))
 	}
