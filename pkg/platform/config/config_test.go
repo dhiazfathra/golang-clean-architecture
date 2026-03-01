@@ -50,7 +50,7 @@ func TestValidate_InvalidEnv(t *testing.T) {
 	cfg.Env = "invalid"
 	err := cfg.validate()
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "ENV must be development|staging|production")
+	assert.Contains(t, err.Error(), "ENV must be development|staging|production|test")
 }
 
 func TestValidate_ValidEnvValues(t *testing.T) {

@@ -121,7 +121,7 @@ func (c *Config) validate() error {
 	}
 	validEnvs := map[string]bool{"development": true, "staging": true, "production": true}
 	if !validEnvs[c.Env] {
-		errs = append(errs, fmt.Sprintf("ENV must be development|staging|production, got %q", c.Env))
+		errs = append(errs, fmt.Sprintf("ENV must be development|staging|production|test, got %q", c.Env))
 	}
 	if c.DBMaxOpenConns < 1 {
 		errs = append(errs, "DB_MAX_OPEN_CONNS must be >= 1")
