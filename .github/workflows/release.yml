@@ -52,12 +52,8 @@ jobs:
         with:
           node-version: lts/*
 
-      - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@17c68674d8eefe34b5d2e0db12684eaed1deb93a
+      - uses: go-semantic-release/action@v1
+        id: semrel
         with:
-          extra_plugins: |
-            @semantic-release/git
-            @semantic-release/github
-            @semantic-release/exec
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          changelog-generator-opt: "emojis=true"
