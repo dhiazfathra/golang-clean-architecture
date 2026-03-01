@@ -9,7 +9,7 @@ import (
 )
 
 func validConfig() *Config {
-	return &Config{
+	return &Config{ //nolint:gosec // G101: false positive, test fixture uses local dev credentials
 		ListenAddr:            ":8080",
 		Env:                   "development",
 		ServiceName:           "golang-clean-arch",

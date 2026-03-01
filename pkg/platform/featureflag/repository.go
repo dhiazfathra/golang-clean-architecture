@@ -43,7 +43,7 @@ func (r *Repository) Update(ctx context.Context, f *Flag) error {
 }
 
 func (r *Repository) Delete(ctx context.Context, id int64, deletedBy string) error {
-	_, err := r.db.ExecContext(ctx,
+	_, err := r.db.ExecContext(ctx, //nolint:gosec // G701: false positive, query uses parameterized placeholders
 		`UPDATE feature_flags SET is_deleted = true, updated_at = NOW(), updated_by = $1
 		 WHERE id = $2 AND NOT is_deleted`, deletedBy, id)
 	return err

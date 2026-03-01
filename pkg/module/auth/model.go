@@ -7,7 +7,7 @@ import (
 
 type LoginRequest struct {
 	Email    string `json:"email"    validate:"required,email"`
-	Password string `json:"password" validate:"required"`
+	Password string `json:"password" validate:"required"` //nolint:gosec // G117: false positive, this is a request DTO not a hardcoded secret
 }
 
 func (r *LoginRequest) Validate() error {

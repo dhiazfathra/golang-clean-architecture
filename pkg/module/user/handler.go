@@ -19,7 +19,7 @@ func NewHandler(svc *Service, db *sqlx.DB) *Handler { return &Handler{svc: svc, 
 
 type createUserReq struct {
 	Email    string `json:"email"`
-	Password string `json:"password"`
+	Password string `json:"password"` //nolint:gosec // G117: false positive, this is a request DTO not a hardcoded secret
 }
 
 func (h *Handler) Create(c echo.Context) error {

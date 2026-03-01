@@ -50,7 +50,7 @@ linters:
     - gomoddirectives
     - gomodguard
     - goheader
-    # - gosec # Pending implementation - urgently needed for security
+    - gosec
     - gosmopolitan
     - grouper
     # - govet # Pending evaluation

@@ -14,7 +14,7 @@ import (
 
 type CreateUserCmd struct {
 	Email    string
-	Password string
+	Password string //nolint:gosec // G117: false positive, this is a command object not a hardcoded secret
 	Actor    string
 }
 
