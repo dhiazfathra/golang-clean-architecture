@@ -13,3 +13,8 @@ func RegisterRoutes(g *echo.Group, h *Handler, rbacSvc *rbac.Service) {
 	r.GET("", h.List, rbac.RequirePermission(rbacSvc, "user", "list"))
 	r.DELETE("/:id", h.Delete, rbac.RequirePermission(rbacSvc, "user", "delete"))
 }
+
+// RegisterAdminRoutes mounts admin-only user endpoints under the admin group.
+func RegisterAdminRoutes(adminGroup *echo.Group, h *Handler, rbacSvc *rbac.Service) {
+	adminGroup.GET("/users/:id", h.AdminGetByID, rbac.RequirePermission(rbacSvc, "user", "read"))
+}

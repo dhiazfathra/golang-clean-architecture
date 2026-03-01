@@ -1,17 +1,33 @@
 package rbac
 
 import (
+	"encoding/json"
 	"net/http"
+	"time"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
-type Handler struct{ svc *Service }
+// AuditEvent is the shape returned from the events table for audit queries.
+type AuditEvent struct {
+	ID        int64           `db:"id"          json:"id"`
+	EventType string          `db:"event_type"  json:"event_type"`
+	Version   int             `db:"version"     json:"version"`
+	Data      json.RawMessage `db:"data"        json:"data"`
+	Metadata  json.RawMessage `db:"metadata"    json:"metadata"`
+	CreatedAt time.Time       `db:"created_at"  json:"created_at"`
+}
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+type Handler struct {
+	svc *Service
+	db  *sqlx.DB
+}
+
+func NewHandler(svc *Service, db *sqlx.DB) *Handler { return &Handler{svc: svc, db: db} }
 
 // POST /admin/roles
 func (h *Handler) CreateRole(c echo.Context) error {
@@ -52,6 +68,9 @@ func (h *Handler) GetRole(c echo.Context) error {
 	role, err := h.svc.GetRoleByID(c.Request().Context(), c.Param("id"))
 	if err != nil {
 		return httputil.NotFoundOrError(c, err)
+	}
+	if role == nil {
+		return httputil.NotFound(c)
 	}
 	return httputil.OK(c, FilterResponse(c, role))
 }
@@ -95,6 +114,23 @@ func (h *Handler) ListUserRoles(c echo.Context) error {
 		return httputil.InternalError(c, err)
 	}
 	return httputil.OK(c, map[string][]string{"role_ids": roleIDs})
+}
+
+// GET /admin/audit/:type/:id — returns all events for a given aggregate.
+// Protected by RequirePermission("audit", "read"); super_admin wildcard covers it.
+func (h *Handler) GetAuditHistory(c echo.Context) error {
+	aggType := c.Param("type")
+	aggID := c.Param("id")
+	var events []AuditEvent
+	err := h.db.SelectContext(c.Request().Context(), &events, `
+		SELECT id, event_type, version, data, metadata, created_at
+		FROM events
+		WHERE aggregate_type = $1 AND aggregate_id = $2
+		ORDER BY version ASC`, aggType, aggID)
+	if err != nil {
+		return httputil.InternalError(c, err)
+	}
+	return httputil.OK(c, events)
 }
 
 // parsePermParam splits "module:action" into its parts.

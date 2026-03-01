@@ -1,16 +1,21 @@
 package user
 
 import (
+	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
-type Handler struct{ svc *Service }
+type Handler struct {
+	svc *Service
+	db  *sqlx.DB
+}
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *Service, db *sqlx.DB) *Handler { return &Handler{svc: svc, db: db} }
 
 type createUserReq struct {
 	Email    string `json:"email"`
@@ -58,4 +63,14 @@ func (h *Handler) Delete(c echo.Context) error {
 		return httputil.InternalError(c, err)
 	}
 	return httputil.OK(c, map[string]string{"message": "deleted"})
+}
+
+// GET /admin/users/:id — returns a user even if soft-deleted.
+func (h *Handler) AdminGetByID(c echo.Context) error {
+	u, err := database.GetIncludingDeleted[UserReadModel](c.Request().Context(), h.db,
+		`SELECT * FROM users_read WHERE id = $1`, c.Param("id"))
+	if err != nil || u == nil {
+		return httputil.NotFound(c)
+	}
+	return httputil.OK(c, rbac.FilterResponse(c, u))
 }

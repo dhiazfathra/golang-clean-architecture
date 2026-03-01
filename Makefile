@@ -1,4 +1,4 @@
-.PHONY: infra-up infra-down build test migrate seed generate
+.PHONY: infra-up infra-down build test cover lint migrate seed generate
 
 infra-up:
 	docker compose -f deployments/docker-compose.yaml up -d
@@ -11,6 +11,13 @@ build:
 
 test:
 	go test ./...
+
+cover:
+	go test -coverprofile=cover.out ./...
+	go tool cover -func=cover.out | tail -1
+
+lint:
+	golangci-lint run ./...
 
 migrate:
 	@for f in migrations/*.up.sql; do \

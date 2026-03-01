@@ -64,9 +64,14 @@ func main() {
 	protected := e.Group("")
 	protected.Use(session.RequireSession(sessionStore))
 
+	adminGroup := protected.Group("/admin")
+	rbacHandler := rbac.NewHandler(rbacSvc, db)
+	userHandler := user.NewHandler(userSvc, db)
+
 	auth.RegisterRoutes(public, protected, auth.NewHandler(authSvc))
-	rbac.RegisterRoutes(protected.Group("/admin"), rbac.NewHandler(rbacSvc), rbacSvc)
-	user.RegisterRoutes(protected, user.NewHandler(userSvc), rbacSvc)
+	rbac.RegisterRoutes(adminGroup, rbacHandler, rbacSvc)
+	user.RegisterRoutes(protected, userHandler, rbacSvc)
+	user.RegisterAdminRoutes(adminGroup, userHandler, rbacSvc)
 	order.RegisterRoutes(protected, order.NewHandler(orderSvc), rbacSvc)
 
 	// Health probes — on root Echo instance, no auth middleware.

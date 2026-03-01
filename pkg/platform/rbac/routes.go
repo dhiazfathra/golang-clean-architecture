@@ -11,4 +11,7 @@ func RegisterRoutes(adminGroup *echo.Group, h *Handler, svc *Service) {
 	rbacAdmin.POST("/roles/:id/permissions", h.GrantPermission)
 	rbacAdmin.DELETE("/roles/:id/permissions/:perm", h.RevokePermission)
 	rbacAdmin.GET("/users/:id/roles", h.ListUserRoles)
+
+	// Audit — separate permission so super_admin wildcard covers it without rbac/manage.
+	adminGroup.GET("/audit/:type/:id", h.GetAuditHistory, RequirePermission(svc, "audit", "read"))
 }
