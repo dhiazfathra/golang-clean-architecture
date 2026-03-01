@@ -24,6 +24,23 @@ func validConfig() *Config {
 	}
 }
 
+func TestMustLoad_Defaults(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
+	t.Setenv("VALKEY_URL", "localhost:6379")
+
+	cfg := MustLoad()
+
+	assert.Equal(t, ":8080", cfg.ListenAddr)
+	assert.Equal(t, "development", cfg.Env)
+	assert.Equal(t, "golang-clean-arch", cfg.ServiceName)
+	assert.Equal(t, 25, cfg.DBMaxOpenConns)
+	assert.Equal(t, 5, cfg.DBMaxIdleConns)
+	assert.Equal(t, 24*time.Hour, cfg.SessionTTL)
+	assert.Equal(t, "localhost:8125", cfg.StatsdAddr)
+	assert.Equal(t, "golang_clean_arch.", cfg.StatsdNamespace)
+	assert.Equal(t, 30*time.Second, cfg.FeatureFlagRefreshTTL)
+}
+
 func TestValidate_ValidConfig(t *testing.T) {
 	cfg := validConfig()
 	assert.NoError(t, cfg.validate())
@@ -129,23 +146,6 @@ func TestMustLoad_EnvOverrides(t *testing.T) {
 	assert.Equal(t, "statsd:8125", cfg.StatsdAddr)
 	assert.Equal(t, "test.", cfg.StatsdNamespace)
 	assert.Equal(t, time.Minute, cfg.FeatureFlagRefreshTTL)
-}
-
-func TestMustLoad_Defaults(t *testing.T) {
-	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
-	t.Setenv("VALKEY_URL", "localhost:6379")
-
-	cfg := MustLoad()
-
-	assert.Equal(t, ":8080", cfg.ListenAddr)
-	assert.Equal(t, "development", cfg.Env)
-	assert.Equal(t, "golang-clean-arch", cfg.ServiceName)
-	assert.Equal(t, 25, cfg.DBMaxOpenConns)
-	assert.Equal(t, 5, cfg.DBMaxIdleConns)
-	assert.Equal(t, 24*time.Hour, cfg.SessionTTL)
-	assert.Equal(t, "localhost:8125", cfg.StatsdAddr)
-	assert.Equal(t, "golang_clean_arch.", cfg.StatsdNamespace)
-	assert.Equal(t, 30*time.Second, cfg.FeatureFlagRefreshTTL)
 }
 
 func TestMustLoad_PanicsOnInvalidConfig(t *testing.T) {
