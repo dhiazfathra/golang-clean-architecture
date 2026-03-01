@@ -2,7 +2,7 @@
 
 [![Go Version](https://img.shields.io/github/go-mod/go-version/dhiazfathra/golang-clean-architecture)](https://go.dev/)
 [![Build Status](https://github.com/dhiazfathra/golang-clean-architecture/actions/workflows/ci.yml/badge.svg)](https://github.com/dhiazfathra/golang-clean-architecture/actions)
-[![codecov](https://codecov.io/gh/dhiazfathra/golang-clean-architecture/branch/main/graph/badge.svg)](https://codecov.io/gh/dhiazfathra/golang-clean-architecture)
+[![codecov](https://codecov.io/gh/dhiazfathra/golang-clean-architecture/graph/badge.svg?token=5R78WXtIbj)](https://codecov.io/gh/dhiazfathra/golang-clean-architecture)
 [![Go Report Card](https://goreportcard.com/badge/github.com/dhiazfathra/golang-clean-architecture)](https://goreportcard.com/report/github.com/dhiazfathra/golang-clean-architecture)
 [![License](https://img.shields.io/github/license/dhiazfathra/golang-clean-architecture)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/dhiazfathra/golang-clean-architecture)](https://github.com/dhiazfathra/golang-clean-architecture/releases)
