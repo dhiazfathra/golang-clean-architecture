@@ -149,6 +149,10 @@ func TestMustLoad_EnvOverrides(t *testing.T) {
 }
 
 func TestMustLoad_PanicsOnInvalidConfig(t *testing.T) {
+	// Explicitly unset required env vars so validation fails
+	t.Setenv("DATABASE_URL", "")
+	t.Setenv("VALKEY_URL", "")
+
 	// No DATABASE_URL or VALKEY_URL set
 	assert.Panics(t, func() { MustLoad() })
 }
