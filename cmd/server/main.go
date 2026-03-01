@@ -22,10 +22,19 @@ import (
 
 func main() {
 	cfg := config.MustLoad()
-	observability.Init("golang-clean-arch", cfg.Env)
+	observability.Init(observability.InitConfig{
+		ServiceName:     cfg.ServiceName,
+		Env:             cfg.Env,
+		StatsdAddr:      cfg.StatsdAddr,
+		StatsdNamespace: cfg.StatsdNamespace,
+	})
 	defer observability.Stop()
 
-	db := database.MustConnect(cfg.DatabaseURL)
+	db := database.MustConnect(cfg.DatabaseURL, database.PoolConfig{
+		MaxOpenConns: cfg.DBMaxOpenConns,
+		MaxIdleConns: cfg.DBMaxIdleConns,
+		ServiceName:  cfg.ServiceName + "-db",
+	})
 	vk := session.MustConnectValkey(cfg.ValkeyURL)
 	es := eventstore.NewPgStore(db)
 
@@ -40,7 +49,7 @@ func main() {
 	userReadRepo := user.NewPgReadRepository(db)
 	userSvc := user.NewService(es, userReadRepo, hasher)
 
-	authSvc := auth.NewService(sessionStore, &authUserAdapter{userSvc}, hasher)
+	authSvc := auth.NewService(sessionStore, &authUserAdapter{userSvc}, hasher, cfg.SessionTTL)
 
 	orderProjector := order.NewProjector(db)
 	orderReadRepo := order.NewPgReadRepository(db)
@@ -58,7 +67,7 @@ func main() {
 	}
 
 	e := echo.New()
-	e.Use(observability.EchoMiddleware("golang-clean-arch"))
+	e.Use(observability.EchoMiddleware(cfg.ServiceName))
 	e.Use(observability.RequestMetrics())
 	public := e.Group("")
 	protected := e.Group("")

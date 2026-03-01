@@ -79,7 +79,7 @@ func newTestSvc(sessions session.SessionStore, users UserProvider, hasher Passwo
 	if hasher == nil {
 		hasher = &mockPasswordHasher{}
 	}
-	return NewService(sessions, users, hasher)
+	return NewService(sessions, users, hasher, 24*time.Hour)
 }
 
 // --- Login ---

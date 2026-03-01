@@ -8,16 +8,15 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
-const sessionTTL = 24 * time.Hour
-
 type Service struct {
-	sessions session.SessionStore
-	users    UserProvider
-	hasher   PasswordHasher
+	sessions   session.SessionStore
+	users      UserProvider
+	hasher     PasswordHasher
+	sessionTTL time.Duration
 }
 
-func NewService(sessions session.SessionStore, users UserProvider, hasher PasswordHasher) *Service {
-	return &Service{sessions: sessions, users: users, hasher: hasher}
+func NewService(sessions session.SessionStore, users UserProvider, hasher PasswordHasher, sessionTTL time.Duration) *Service {
+	return &Service{sessions: sessions, users: users, hasher: hasher, sessionTTL: sessionTTL}
 }
 
 func (s *Service) Login(ctx context.Context, req LoginRequest, meta map[string]string) (*session.Session, error) {
@@ -31,7 +30,7 @@ func (s *Service) Login(ctx context.Context, req LoginRequest, meta map[string]s
 	if !s.hasher.Verify(req.Password, user.PassHash) {
 		return nil, fmt.Errorf("invalid credentials")
 	}
-	return s.sessions.Create(ctx, user.ID, sessionTTL, meta)
+	return s.sessions.Create(ctx, user.ID, s.sessionTTL, meta)
 }
 
 func (s *Service) Logout(ctx context.Context, sessionID string) error {
