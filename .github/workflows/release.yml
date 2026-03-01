@@ -49,7 +49,7 @@ jobs:
           node-version: lts/*
 
       - name: Semantic Release
-        uses: cycjimmy/semantic-release-action@v6
+        uses: cycjimmy/semantic-release-action@17c68674d8eefe34b5d2e0db12684eaed1deb93a
         with:
           extra_plugins: |
             @semantic-release/git
