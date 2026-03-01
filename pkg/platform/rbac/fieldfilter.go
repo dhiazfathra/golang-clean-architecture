@@ -78,7 +78,8 @@ func ValidateInputFields(c echo.Context, body map[string]any) []string {
 		return nil
 	}
 	var disallowed []string
-	if policy.Mode == "allow" {
+	switch policy.Mode {
+	case "allow":
 		allowed := map[string]struct{}{}
 		for _, f := range policy.Fields {
 			allowed[f] = struct{}{}
@@ -88,7 +89,7 @@ func ValidateInputFields(c echo.Context, body map[string]any) []string {
 				disallowed = append(disallowed, k)
 			}
 		}
-	} else if policy.Mode == "deny" {
+	case "deny":
 		denied := map[string]struct{}{}
 		for _, f := range policy.Fields {
 			denied[f] = struct{}{}
