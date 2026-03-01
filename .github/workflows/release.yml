@@ -5,56 +5,55 @@ on:
     branches: [master]
     paths:
       - "**/*.go"
+      - "go.mod"
+      - "go.sum"
+      - "migrations/**"
 
 jobs:
+  ci:
+    name: CI Gate
+    uses: ./.github/workflows/ci.yml
+
   release:
+    name: Semantic Release
+    needs: ci
     runs-on: ubuntu-latest
     permissions:
       contents: write
       issues: write
       pull-requests: write
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Required for semantic-release to analyze commit history
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
-          go-version: "1.26"
+          go-version: "1.24"
 
-      - name: Build Go application
-        run: go build -o main core-service/cmd/main.go
-
-      - name: Get version
-        id: get-version
+      - name: Build binary
         run: |
-          echo "VERSION=$(git describe --tags --always)" >> $GITHUB_OUTPUT
+          VERSION=$(git describe --tags --always)
+          go build -ldflags "-X main.version=${VERSION}" -o bin/server ./cmd/server/...
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: go-binary-${{ steps.get-version.outputs.VERSION }}
-          path: main
+          name: server-binary
+          path: bin/server
           retention-days: 5
 
-      - name: Archive Release
-        run: |
-          mkdir -p release
-          cp main release/main-${{ steps.get-version.outputs.VERSION }}
-          tar -czvf release-${{ steps.get-version.outputs.VERSION }}.tar.gz release/
-
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: lts/*
 
-      - name: Install semantic-release
-        run: npm install semantic-release @semantic-release/git @semantic-release/github @semantic-release/exec --save-dev
-
-      - name: Release
-        run: npx semantic-release
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v4
+        with:
+          extra_plugins: |
+            @semantic-release/git
+            @semantic-release/github
+            @semantic-release/exec
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true

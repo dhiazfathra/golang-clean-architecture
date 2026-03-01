@@ -1,0 +1,28 @@
+# Pre-commit hook configuration
+# Toggle individual hooks on/off per developer preference.
+# Copy to .pre-commit.local.yaml for personal overrides (gitignored).
+
+hooks:
+  # Conventional commit message validation (runs on commit-msg)
+  conventional_commit: true
+
+  # Go formatting check
+  gofmt: true
+
+  # Go vet
+  govet: true
+
+  # golangci-lint (subset of rules for speed)
+  lint: true
+
+  # Unit tests for changed packages only
+  test_changed: true
+
+  # SQL migration file validation (naming + syntax)
+  sql_validate: true
+
+  # Secret detection (hardcoded tokens, passwords, keys)
+  secret_scan: true
+
+  # Go vulnerability check (govulncheck)
+  vulncheck: false  # disabled by default — slow on large codebases

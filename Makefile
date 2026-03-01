@@ -1,4 +1,4 @@
-.PHONY: infra-up infra-down build test cover migrate seed generate lint run vet
+.PHONY: infra-up infra-down build test cover migrate seed generate lint run vet install-hooks sql-validate
 
 SERVICE_NAME ?= golang-clean-arch
 ENV          ?= development
@@ -41,3 +41,14 @@ run:
 
 vet:
 	go vet ./...
+
+install-hooks:
+	@bash scripts/install-hooks.sh
+
+sql-validate:
+	@bash -c 'for f in migrations/*.up.sql; do \
+		base=$$(basename "$$f"); \
+		if ! echo "$$base" | grep -qE "^[0-9]{14}_[a-z_]+\.up\.sql$$"; then \
+			echo "Invalid: $$base"; exit 1; \
+		fi; \
+	done && echo "All migration filenames valid"'

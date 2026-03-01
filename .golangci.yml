@@ -1,0 +1,45 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gocritic
+    - gosec
+    - bodyclose
+    - exhaustive
+    - nilerr
+    - prealloc
+    - revive
+    - unconvert
+    - unparam
+
+linters-settings:
+  gocritic:
+    enabled-checks:
+      - dupImport
+      - ifElseChain
+      - nestingReduce
+  revive:
+    rules:
+      - name: unexported-return
+        disabled: true
+  gosec:
+    excludes:
+      - G101  # hardcoded credentials (too many false positives in test files)
+
+issues:
+  exclude-dirs:
+    - vendor
+    - templates
+  exclude-rules:
+    - path: _test\.go
+      linters:
+        - gosec
+        - gocritic
