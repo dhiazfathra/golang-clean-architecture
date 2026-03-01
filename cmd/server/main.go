@@ -13,6 +13,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/docs"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/featureflag"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/health"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
@@ -61,6 +62,10 @@ func main() {
 	runner.Register(orderProjector)
 	runner.Start(context.Background())
 
+	ffRepo := featureflag.NewRepository(db)
+	ffSvc := featureflag.NewService(ffRepo, vk, cfg.FeatureFlagRefreshTTL)
+	ffSvc.StartRefresh(context.Background())
+
 	if err := seeder.Seed(context.Background(), rbacSvc, &seederUserAdapter{userSvc},
 		cfg.SeedSuperAdminPassword, cfg.SeedDefaultModulePassword); err != nil {
 		panic("seeder: " + err.Error())
@@ -82,6 +87,9 @@ func main() {
 	user.RegisterRoutes(protected, userHandler, rbacSvc)
 	user.RegisterAdminRoutes(adminGroup, userHandler, rbacSvc)
 	order.RegisterRoutes(protected, order.NewHandler(orderSvc), rbacSvc)
+
+	ffHandler := featureflag.NewHandler(ffSvc)
+	featureflag.RegisterAdminRoutes(adminGroup, ffHandler, rbacSvc)
 
 	// Health probes — on root Echo instance, no auth middleware.
 	healthHandler := health.NewHandler(db, vk)

@@ -18,8 +18,9 @@ func validConfig() *Config {
 		DBMaxOpenConns:  25,
 		DBMaxIdleConns:  5,
 		SessionTTL:      24 * time.Hour,
-		StatsdAddr:      "localhost:8125",
-		StatsdNamespace: "golang_clean_arch.",
+		StatsdAddr:            "localhost:8125",
+		StatsdNamespace:       "golang_clean_arch.",
+		FeatureFlagRefreshTTL: 30 * time.Second,
 	}
 }
 
@@ -96,6 +97,14 @@ func TestValidate_MultipleErrors(t *testing.T) {
 	assert.Contains(t, err.Error(), "ENV must be")
 }
 
+func TestValidate_FeatureFlagRefreshTTLTooShort(t *testing.T) {
+	cfg := validConfig()
+	cfg.FeatureFlagRefreshTTL = 500 * time.Millisecond
+	err := cfg.validate()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "FEATURE_FLAG_REFRESH_TTL must be >= 1s")
+}
+
 func TestMustLoad_EnvOverrides(t *testing.T) {
 	t.Setenv("DATABASE_URL", "postgres://test:test@localhost/test")
 	t.Setenv("VALKEY_URL", "localhost:6380")
@@ -106,6 +115,7 @@ func TestMustLoad_EnvOverrides(t *testing.T) {
 	t.Setenv("SESSION_TTL", "2h")
 	t.Setenv("STATSD_ADDR", "statsd:8125")
 	t.Setenv("STATSD_NAMESPACE", "test.")
+	t.Setenv("FEATURE_FLAG_REFRESH_TTL", "1m")
 
 	cfg := MustLoad()
 
@@ -118,6 +128,7 @@ func TestMustLoad_EnvOverrides(t *testing.T) {
 	assert.Equal(t, 2*time.Hour, cfg.SessionTTL)
 	assert.Equal(t, "statsd:8125", cfg.StatsdAddr)
 	assert.Equal(t, "test.", cfg.StatsdNamespace)
+	assert.Equal(t, time.Minute, cfg.FeatureFlagRefreshTTL)
 }
 
 func TestMustLoad_Defaults(t *testing.T) {
@@ -134,6 +145,7 @@ func TestMustLoad_Defaults(t *testing.T) {
 	assert.Equal(t, 24*time.Hour, cfg.SessionTTL)
 	assert.Equal(t, "localhost:8125", cfg.StatsdAddr)
 	assert.Equal(t, "golang_clean_arch.", cfg.StatsdNamespace)
+	assert.Equal(t, 30*time.Second, cfg.FeatureFlagRefreshTTL)
 }
 
 func TestMustLoad_PanicsOnInvalidConfig(t *testing.T) {

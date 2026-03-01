@@ -156,6 +156,17 @@ See [docs/new-module-checklist.md](docs/new-module-checklist.md) for the full ch
 | DELETE | `/admin/roles/:id/permissions/:perm` | `rbac:manage` |
 | GET | `/admin/users/:id/roles` | `rbac:manage` |
 
+### Feature Flags (admin)
+
+| Method | Path | Permission |
+|--------|------|------------|
+| GET | `/admin/feature-flags` | `featureflag:manage` |
+| POST | `/admin/feature-flags` | `featureflag:manage` |
+| PATCH | `/admin/feature-flags/:key` | `featureflag:manage` |
+| DELETE | `/admin/feature-flags/:key` | `featureflag:manage` |
+
+Feature flags use a hybrid 3-tier cache: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**. Use `featureflag.RequireFlag(svc, "key")` middleware to gate any route behind a flag.
+
 ### Audit
 
 | Method | Path | Permission |
@@ -191,6 +202,7 @@ All values can be set via environment variables or a YAML file (`CONFIG_FILE=pat
 | `SEED_SUPER_ADMIN_PASSWORD` | — | Password for `admin@system.local` |
 | `SEED_DEFAULT_MODULE_PASSWORD` | — | Password for module admin users |
 | `SNOWFLAKE_NODE_ID` | `1` | Snowflake node ID (1–1023) |
+| `FEATURE_FLAG_REFRESH_TTL` | `30s` | Feature flag cache refresh interval (min `1s`) |
 | `DD_API_KEY` | — | Datadog API key (optional; disables APM if unset) |
 | `DD_ENV` | — | Datadog environment tag |
 | `DD_SERVICE` | — | Datadog service name |

@@ -32,6 +32,9 @@ type Config struct {
 	// Observability
 	StatsdAddr      string `yaml:"statsd_addr"`
 	StatsdNamespace string `yaml:"statsd_namespace"`
+
+	// Feature Flags
+	FeatureFlagRefreshTTL time.Duration `yaml:"feature_flag_refresh_ttl"`
 }
 
 func MustLoad() *Config {
@@ -42,8 +45,9 @@ func MustLoad() *Config {
 		DBMaxOpenConns:  25,
 		DBMaxIdleConns:  5,
 		SessionTTL:      24 * time.Hour,
-		StatsdAddr:      "localhost:8125",
-		StatsdNamespace: "golang_clean_arch.",
+		StatsdAddr:            "localhost:8125",
+		StatsdNamespace:       "golang_clean_arch.",
+		FeatureFlagRefreshTTL: 30 * time.Second,
 	}
 
 	loadYAML(cfg)
@@ -82,6 +86,7 @@ func applyEnvOverrides(cfg *Config) {
 	overrideInt("DB_MAX_OPEN_CONNS", &cfg.DBMaxOpenConns)
 	overrideInt("DB_MAX_IDLE_CONNS", &cfg.DBMaxIdleConns)
 	overrideDuration("SESSION_TTL", &cfg.SessionTTL)
+	overrideDuration("FEATURE_FLAG_REFRESH_TTL", &cfg.FeatureFlagRefreshTTL)
 }
 
 func overrideStr(key string, target *string) {
@@ -126,6 +131,9 @@ func (c *Config) validate() error {
 	}
 	if c.SessionTTL < time.Minute {
 		errs = append(errs, "SESSION_TTL must be >= 1m")
+	}
+	if c.FeatureFlagRefreshTTL < time.Second {
+		errs = append(errs, "FEATURE_FLAG_REFRESH_TTL must be >= 1s")
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("validation:\n  - %s", strings.Join(errs, "\n  - "))
