@@ -49,7 +49,8 @@ func main() {
 	}
 
 	outDir := filepath.Join("pkg", "module", spec.Name)
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
+	// G301 — Directory permissions too broad if using 0o755
+	if err := os.MkdirAll(outDir, 0o750); err != nil {
 		panic(err)
 	}
 
@@ -79,7 +80,8 @@ func main() {
 
 	// OpenAPI path fragment (merge into api/openapi.yaml manually)
 	apiPathsDir := filepath.Join("api", "paths")
-	if err := os.MkdirAll(apiPathsDir, 0o755); err != nil {
+	// G301 — Directory permissions too broad if using 0o755
+	if err := os.MkdirAll(apiPathsDir, 0o750); err != nil {
 		panic(err)
 	}
 	renderTo(spec, "templates/module/openapi_paths.yaml.tmpl",
@@ -100,17 +102,35 @@ func main() {
 }
 
 func renderTo(spec ModuleSpec, tmplPath, outPath string) {
+	// Validate both paths stay within the working directory to avoid G304 — path traversal
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	for _, p := range []string{tmplPath, outPath} {
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			panic(err)
+		}
+		if !strings.HasPrefix(abs, wd+string(os.PathSeparator)) {
+			panic(fmt.Sprintf("renderTo: path escapes working directory: %s", p))
+		}
+	}
+
 	funcMap := template.FuncMap{
 		"add": func(a, b int) int { return a + b },
 	}
 	t := template.Must(template.New(filepath.Base(tmplPath)).
 		Funcs(funcMap).
 		ParseFiles(tmplPath))
-	f, err := os.Create(outPath)
+
+	// Use os.OpenFile with explicit flags instead of os.Create to avoid G304 — path traversal
+	f, err := os.OpenFile(filepath.Clean(outPath), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
 		panic(err)
 	}
 	defer f.Close()
+
 	if err := t.Execute(f, spec); err != nil {
 		panic(err)
 	}

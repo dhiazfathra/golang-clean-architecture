@@ -23,7 +23,11 @@ func SetupTestDB(t *testing.T) *sqlx.DB {
 	if err != nil {
 		t.Skipf("postgres not available: %v", err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("testutil: close db: %v", err)
+		}
+	})
 	return db
 }
 

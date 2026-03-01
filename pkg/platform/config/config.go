@@ -2,7 +2,9 @@ package config
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -64,10 +66,25 @@ func loadYAML(cfg *Config) {
 	if path == "" {
 		return
 	}
-	data, err := os.ReadFile(path)
+
+	// Scopes reads to a fixed directory to avoid G703/G304 — path traversal
+	root, err := os.OpenRoot(".")
+	if err != nil {
+		panic(fmt.Sprintf("config: open root: %v", err))
+	}
+	defer root.Close()
+
+	f, err := root.Open(filepath.Clean(path))
+	if err != nil {
+		panic(fmt.Sprintf("config: open file: %v", err))
+	}
+	defer f.Close()
+
+	data, err := io.ReadAll(f)
 	if err != nil {
 		panic(fmt.Sprintf("config: read file: %v", err))
 	}
+
 	if err := yaml.Unmarshal(data, cfg); err != nil {
 		panic(fmt.Sprintf("config: parse yaml: %v", err))
 	}
