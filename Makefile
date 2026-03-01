@@ -18,6 +18,10 @@ test:
 cover:
 	go test -coverprofile=cover.out ./...
 	go tool cover -func=cover.out
+	@echo "Coverage: $$(go tool cover -func=cover.out | grep total | awk '{print $$3}' | tr -d '%')%"
+
+cover-html:
+	go test ./...  -coverpkg=./... -coverprofile ./cover.out && go tool cover -html ./cover.out
 
 migrate:
 	@echo "Applying migrations..."
