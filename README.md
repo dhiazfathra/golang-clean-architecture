@@ -1,5 +1,12 @@
 # Go Clean Architecture
 
+[![Go Version](https://img.shields.io/github/go-mod/go-version/dhiazfathra/golang-clean-architecture)](https://go.dev/)
+[![Build Status](https://github.com/dhiazfathra/golang-clean-architecture/actions/workflows/ci.yml/badge.svg)](https://github.com/dhiazfathra/golang-clean-architecture/actions)
+[![codecov](https://codecov.io/gh/dhiazfathra/golang-clean-architecture/branch/main/graph/badge.svg)](https://codecov.io/gh/dhiazfathra/golang-clean-architecture)
+[![Go Report Card](https://goreportcard.com/badge/github.com/dhiazfathra/golang-clean-architecture)](https://goreportcard.com/report/github.com/dhiazfathra/golang-clean-architecture)
+[![License](https://img.shields.io/github/license/dhiazfathra/golang-clean-architecture)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/dhiazfathra/golang-clean-architecture)](https://github.com/dhiazfathra/golang-clean-architecture/releases)
+
 A Go backend demonstrating a **modular monolith** with **event sourcing**, **RBAC with field-level permissions**, and **Datadog observability**.
 
 ---
@@ -224,55 +231,9 @@ make vet
 
 # Lint
 make lint
-
-# Validate SQL migration filenames
-make sql-validate
 ```
 
 Tests use hand-rolled mocks (struct with function fields) and `testutil.NewMockDB` for sqlx+sqlmock. No external services are required for unit tests — `observability.InitNoop()` is called automatically from `testutil.init()`.
-
----
-
-## CI/CD & Pre-Commit Hooks
-
-### Pre-Commit Hooks
-
-Install local git hooks with:
-
-```bash
-make install-hooks
-```
-
-Hooks are configured in `.pre-commit.yaml` and include:
-
-| Hook | Default | Description |
-|------|---------|-------------|
-| `conventional_commit` | on | Validates commit messages follow Conventional Commits format |
-| `gofmt` | on | Checks Go formatting on changed files |
-| `govet` | on | Runs `go vet` on changed packages |
-| `lint` | on | Runs `golangci-lint` on changed packages |
-| `test_changed` | on | Runs tests for changed packages only |
-| `sql_validate` | on | Validates migration file naming conventions |
-| `secret_scan` | on | Detects hardcoded secrets in Go files |
-| `vulncheck` | off | Runs `govulncheck` (slow; opt-in) |
-
-To override any hook locally, create `.pre-commit.local.yaml` (gitignored) with the hooks you want to toggle.
-
-### CI Pipeline (GitHub Actions)
-
-Every push to `master` and every PR triggers the CI pipeline (`.github/workflows/ci.yml`) which runs:
-
-- **Lint** — `golangci-lint` with project-specific config
-- **Test** — `go test -race` with coverage threshold (80%+)
-- **SQL Validation** — migration filename and syntax checks
-- **Vulnerability Check** — `govulncheck`
-- **Security Scan** — `gosec` with SARIF upload
-- **License Check** — dependency license validation
-- **Build** — compilation and `go vet`
-
-### Semantic Release
-
-Pushes to `master` that pass CI trigger semantic versioning via `.github/workflows/release.yml`. Conventional commit messages determine version bumps automatically.
 
 ---
 
