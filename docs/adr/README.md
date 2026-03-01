@@ -31,6 +31,7 @@ ADRs are numbered and written using the template:
 | 0016 | CLI module generator with text/template scaffolding | Accepted | [0016-cli-module-generator.md](0016-cli-module-generator.md) |
 | 0017 | Snowflake IDs for all database primary keys | Accepted | [0017-snowflake-id-generation.md](0017-snowflake-id-generation.md) |
 | 0018 | Scalar as the API documentation renderer | Accepted | [0018-scalar-api-docs.md](0018-scalar-api-docs.md) |
+| 0019 | Feature flag system with 3-tier cache | Accepted | [0019-feature-flag-system.md](0019-feature-flag-system.md) |
 
 ## How to Add a New ADR
 

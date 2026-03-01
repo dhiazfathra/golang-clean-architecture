@@ -13,6 +13,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/docs"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/featureflag"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/health"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
@@ -22,10 +23,19 @@ import (
 
 func main() {
 	cfg := config.MustLoad()
-	observability.Init("golang-clean-arch", cfg.Env)
+	observability.Init(observability.InitConfig{
+		ServiceName:     cfg.ServiceName,
+		Env:             cfg.Env,
+		StatsdAddr:      cfg.StatsdAddr,
+		StatsdNamespace: cfg.StatsdNamespace,
+	})
 	defer observability.Stop()
 
-	db := database.MustConnect(cfg.DatabaseURL)
+	db := database.MustConnect(cfg.DatabaseURL, database.PoolConfig{
+		MaxOpenConns: cfg.DBMaxOpenConns,
+		MaxIdleConns: cfg.DBMaxIdleConns,
+		ServiceName:  cfg.ServiceName + "-db",
+	})
 	vk := session.MustConnectValkey(cfg.ValkeyURL)
 	es := eventstore.NewPgStore(db)
 
@@ -40,7 +50,7 @@ func main() {
 	userReadRepo := user.NewPgReadRepository(db)
 	userSvc := user.NewService(es, userReadRepo, hasher)
 
-	authSvc := auth.NewService(sessionStore, &authUserAdapter{userSvc}, hasher)
+	authSvc := auth.NewService(sessionStore, &authUserAdapter{userSvc}, hasher, cfg.SessionTTL)
 
 	orderProjector := order.NewProjector(db)
 	orderReadRepo := order.NewPgReadRepository(db)
@@ -52,13 +62,17 @@ func main() {
 	runner.Register(orderProjector)
 	runner.Start(context.Background())
 
+	ffRepo := featureflag.NewRepository(db)
+	ffSvc := featureflag.NewService(ffRepo, vk, cfg.FeatureFlagRefreshTTL)
+	ffSvc.StartRefresh(context.Background())
+
 	if err := seeder.Seed(context.Background(), rbacSvc, &seederUserAdapter{userSvc},
 		cfg.SeedSuperAdminPassword, cfg.SeedDefaultModulePassword); err != nil {
 		panic("seeder: " + err.Error())
 	}
 
 	e := echo.New()
-	e.Use(observability.EchoMiddleware("golang-clean-arch"))
+	e.Use(observability.EchoMiddleware(cfg.ServiceName))
 	e.Use(observability.RequestMetrics())
 	public := e.Group("")
 	protected := e.Group("")
@@ -73,6 +87,9 @@ func main() {
 	user.RegisterRoutes(protected, userHandler, rbacSvc)
 	user.RegisterAdminRoutes(adminGroup, userHandler, rbacSvc)
 	order.RegisterRoutes(protected, order.NewHandler(orderSvc), rbacSvc)
+
+	ffHandler := featureflag.NewHandler(ffSvc)
+	featureflag.RegisterAdminRoutes(adminGroup, ffHandler, rbacSvc)
 
 	// Health probes — on root Echo instance, no auth middleware.
 	healthHandler := health.NewHandler(db, vk)

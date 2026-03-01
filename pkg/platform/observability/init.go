@@ -12,21 +12,28 @@ import (
 
 var statsdClient statsd.ClientInterface
 
+// InitConfig holds observability initialisation parameters.
+type InitConfig struct {
+	ServiceName     string
+	Env             string
+	StatsdAddr      string
+	StatsdNamespace string
+}
+
 // Init starts the Datadog tracer, continuous profiler, StatsD, and runtime metrics.
 // Call once at the very top of main(), before any other initialisation.
-// serviceName should match the Datadog service name (e.g. "golang-clean-arch").
-func Init(serviceName, env string) {
+func Init(cfg InitConfig) {
 	if err := ddtracer.Start(
-		ddtracer.WithService(serviceName),
-		ddtracer.WithEnv(env),
+		ddtracer.WithService(cfg.ServiceName),
+		ddtracer.WithEnv(cfg.Env),
 		ddtracer.WithRuntimeMetrics(),
 	); err != nil {
 		slog.Warn("observability: tracer start failed", "error", err)
 	}
 
 	if err := ddprofiler.Start(
-		ddprofiler.WithService(serviceName),
-		ddprofiler.WithEnv(env),
+		ddprofiler.WithService(cfg.ServiceName),
+		ddprofiler.WithEnv(cfg.Env),
 		ddprofiler.CPUDuration(60*time.Second),
 		ddprofiler.WithProfileTypes(
 			ddprofiler.CPUProfile,
@@ -38,9 +45,9 @@ func Init(serviceName, env string) {
 	}
 
 	var err error
-	statsdClient, err = statsd.New("localhost:8125",
-		statsd.WithNamespace("myapp."),
-		statsd.WithTags([]string{"service:" + serviceName, "env:" + env}),
+	statsdClient, err = statsd.New(cfg.StatsdAddr,
+		statsd.WithNamespace(cfg.StatsdNamespace),
+		statsd.WithTags([]string{"service:" + cfg.ServiceName, "env:" + cfg.Env}),
 	)
 	if err != nil {
 		slog.Warn("observability: statsd init failed", "error", err)
