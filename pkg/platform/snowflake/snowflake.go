@@ -13,16 +13,20 @@ var (
 	node *bwsnowflake.Node
 )
 
+// resolveNodeID reads SNOWFLAKE_NODE_ID from the environment, falling back to 1.
+func resolveNodeID() int64 {
+	if v := os.Getenv("SNOWFLAKE_NODE_ID"); v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
+			return n
+		}
+	}
+	return 1
+}
+
 func getNode() *bwsnowflake.Node {
 	once.Do(func() {
-		nodeID := int64(1)
-		if v := os.Getenv("SNOWFLAKE_NODE_ID"); v != "" {
-			if n, err := strconv.ParseInt(v, 10, 64); err == nil {
-				nodeID = n
-			}
-		}
 		var err error
-		node, err = bwsnowflake.NewNode(nodeID)
+		node, err = bwsnowflake.NewNode(resolveNodeID())
 		if err != nil {
 			panic("snowflake: failed to create node: " + err.Error())
 		}

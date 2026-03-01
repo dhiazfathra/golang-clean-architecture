@@ -9,11 +9,11 @@ type ReadRepository interface {
 }
 
 type ListRequest struct {
-	Page, PageSize int
+	Page, PageSize  int
 	SortBy, SortDir string
 }
 
 type ListResponse struct {
-	Items      []UserReadModel
+	Items                             []UserReadModel
 	Total, Page, PageSize, TotalPages int
 }

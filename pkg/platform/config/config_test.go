@@ -10,14 +10,14 @@ import (
 
 func validConfig() *Config {
 	return &Config{
-		ListenAddr:      ":8080",
-		Env:             "development",
-		ServiceName:     "golang-clean-arch",
-		DatabaseURL:     "postgres://app:app@localhost:5432/app?sslmode=disable",
-		ValkeyURL:       "localhost:6379",
-		DBMaxOpenConns:  25,
-		DBMaxIdleConns:  5,
-		SessionTTL:      24 * time.Hour,
+		ListenAddr:            ":8080",
+		Env:                   "development",
+		ServiceName:           "golang-clean-arch",
+		DatabaseURL:           "postgres://app:app@localhost:5432/app?sslmode=disable",
+		ValkeyURL:             "localhost:6379",
+		DBMaxOpenConns:        25,
+		DBMaxIdleConns:        5,
+		SessionTTL:            24 * time.Hour,
 		StatsdAddr:            "localhost:8125",
 		StatsdNamespace:       "golang_clean_arch.",
 		FeatureFlagRefreshTTL: 30 * time.Second,

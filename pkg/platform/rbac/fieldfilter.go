@@ -69,7 +69,7 @@ func filterMap(data []byte, policy FieldPolicy) any {
 	return m
 }
 
-// Compile-time: suppress unused import warning
+// Compile-time: suppress unused import warning.
 var _ = database.BaseReadModel{}
 
 func ValidateInputFields(c echo.Context, body map[string]any) []string {

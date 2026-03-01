@@ -13,11 +13,11 @@ type Permission struct {
 }
 
 type FieldPolicy struct {
-	Mode   string   `json:"mode"`             // "all" | "allow" | "deny"
+	Mode   string   `json:"mode"` // "all" | "allow" | "deny"
 	Fields []string `json:"fields,omitempty"`
 }
 
-func AllFields() FieldPolicy             { return FieldPolicy{Mode: "all"} }
+func AllFields() FieldPolicy              { return FieldPolicy{Mode: "all"} }
 func AllowFields(f ...string) FieldPolicy { return FieldPolicy{Mode: "allow", Fields: f} }
 func DenyFields(f ...string) FieldPolicy  { return FieldPolicy{Mode: "deny", Fields: f} }
 

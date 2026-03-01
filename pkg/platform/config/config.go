@@ -39,12 +39,12 @@ type Config struct {
 
 func MustLoad() *Config {
 	cfg := &Config{
-		ListenAddr:      ":8080",
-		Env:             "development",
-		ServiceName:     "golang-clean-arch",
-		DBMaxOpenConns:  25,
-		DBMaxIdleConns:  5,
-		SessionTTL:      24 * time.Hour,
+		ListenAddr:            ":8080",
+		Env:                   "development",
+		ServiceName:           "golang-clean-arch",
+		DBMaxOpenConns:        25,
+		DBMaxIdleConns:        5,
+		SessionTTL:            24 * time.Hour,
 		StatsdAddr:            "localhost:8125",
 		StatsdNamespace:       "golang_clean_arch.",
 		FeatureFlagRefreshTTL: 30 * time.Second,

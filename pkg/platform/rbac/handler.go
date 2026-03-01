@@ -29,7 +29,7 @@ type Handler struct {
 
 func NewHandler(svc *Service, db *sqlx.DB) *Handler { return &Handler{svc: svc, db: db} }
 
-// POST /admin/roles
+// POST /admin/roles.
 func (h *Handler) CreateRole(c echo.Context) error {
 	var body struct {
 		Name        string       `json:"name"`
@@ -54,7 +54,7 @@ func (h *Handler) CreateRole(c echo.Context) error {
 	return c.JSON(http.StatusCreated, map[string]string{"id": "role_" + body.Name})
 }
 
-// GET /admin/roles
+// GET /admin/roles.
 func (h *Handler) ListRoles(c echo.Context) error {
 	roles, err := h.svc.ListRoles(c.Request().Context())
 	if err != nil {
@@ -63,7 +63,7 @@ func (h *Handler) ListRoles(c echo.Context) error {
 	return httputil.OK(c, FilterResponse(c, roles))
 }
 
-// GET /admin/roles/:id
+// GET /admin/roles/:id.
 func (h *Handler) GetRole(c echo.Context) error {
 	role, err := h.svc.GetRoleByID(c.Request().Context(), c.Param("id"))
 	if err != nil {
@@ -75,7 +75,7 @@ func (h *Handler) GetRole(c echo.Context) error {
 	return httputil.OK(c, FilterResponse(c, role))
 }
 
-// DELETE /admin/roles/:id
+// DELETE /admin/roles/:id.
 func (h *Handler) DeleteRole(c echo.Context) error {
 	if err := h.svc.DeleteRole(c.Request().Context(), c.Param("id"), session.UserID(c)); err != nil {
 		return httputil.InternalError(c, err)
@@ -83,7 +83,7 @@ func (h *Handler) DeleteRole(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// POST /admin/roles/:id/permissions
+// POST /admin/roles/:id/permissions.
 func (h *Handler) GrantPermission(c echo.Context) error {
 	var perm Permission
 	if err := c.Bind(&perm); err != nil {
@@ -95,7 +95,7 @@ func (h *Handler) GrantPermission(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// DELETE /admin/roles/:id/permissions/:perm  (perm = "module:action")
+// DELETE /admin/roles/:id/permissions/:perm  (perm = "module:action").
 func (h *Handler) RevokePermission(c echo.Context) error {
 	module, action := parsePermParam(c.Param("perm"))
 	if module == "" || action == "" {
@@ -107,7 +107,7 @@ func (h *Handler) RevokePermission(c echo.Context) error {
 	return c.NoContent(http.StatusNoContent)
 }
 
-// GET /admin/users/:id/roles
+// GET /admin/users/:id/roles.
 func (h *Handler) ListUserRoles(c echo.Context) error {
 	roleIDs, err := h.svc.GetRolesForUser(c.Request().Context(), c.Param("id"))
 	if err != nil {

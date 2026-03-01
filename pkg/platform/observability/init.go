@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/DataDog/datadog-go/v5/statsd"
-	ddprofiler "github.com/DataDog/dd-trace-go/v2/profiler"
 	ddtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	ddprofiler "github.com/DataDog/dd-trace-go/v2/profiler"
 )
 
 var statsdClient statsd.ClientInterface

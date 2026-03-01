@@ -78,7 +78,7 @@ fi
 
 # ── Hook: lint ──
 if [[ -n "$CHANGED_PKGS" ]]; then
-  run_hook "lint" bash -c "echo '$CHANGED_PKGS' | xargs golangci-lint run --fast"
+  run_hook "lint" bash -c "echo '$CHANGED_PKGS' | xargs golangci-lint run"
 fi
 
 # ── Hook: test_changed ──

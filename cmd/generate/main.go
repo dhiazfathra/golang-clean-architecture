@@ -85,18 +85,18 @@ func main() {
 	renderTo(spec, "templates/module/openapi_paths.yaml.tmpl",
 		filepath.Join(apiPathsDir, spec.Name+".yaml"))
 
-	fmt.Printf("\n✓ Generated module: %s/ (9 files + 5 test files)\n", outDir)
-	fmt.Printf("✓ Generated migration: %s\n\n", migUp)
-	fmt.Printf("✓ Generated OpenAPI fragment: api/paths/%s.yaml\n", spec.Name)
-	fmt.Printf("  → Merge into api/openapi.yaml paths section\n\n")
-	fmt.Printf("Add to cmd/server/main.go:\n\n")
-	fmt.Printf("    %[1]sProjector := %[1]s.NewProjector(db)\n", spec.Name)
-	fmt.Printf("    runner.Register(%[1]sProjector)\n", spec.Name)
-	fmt.Printf("    %[1]sSvc := %[1]s.NewService(es, %[1]s.NewPgReadRepository(db))\n", spec.Name)
-	fmt.Printf("    %[1]s.RegisterRoutes(protected, %[1]s.NewHandler(%[1]sSvc), rbacSvc)\n\n", spec.Name)
-	fmt.Println("Then run:")
-	fmt.Println("    make migrate")
-	fmt.Println("    make seed")
+	fmt.Printf("\n✓ Generated module: %s/ (9 files + 5 test files)\n", outDir)                            //nolint:forbidigo
+	fmt.Printf("✓ Generated migration: %s\n\n", migUp)                                                    //nolint:forbidigo
+	fmt.Printf("✓ Generated OpenAPI fragment: api/paths/%s.yaml\n", spec.Name)                            //nolint:forbidigo
+	fmt.Printf("  → Merge into api/openapi.yaml paths section\n\n")                                       //nolint:forbidigo
+	fmt.Printf("Add to cmd/server/main.go:\n\n")                                                          //nolint:forbidigo
+	fmt.Printf("    %[1]sProjector := %[1]s.NewProjector(db)\n", spec.Name)                               //nolint:forbidigo
+	fmt.Printf("    runner.Register(%[1]sProjector)\n", spec.Name)                                        //nolint:forbidigo
+	fmt.Printf("    %[1]sSvc := %[1]s.NewService(es, %[1]s.NewPgReadRepository(db))\n", spec.Name)        //nolint:forbidigo
+	fmt.Printf("    %[1]s.RegisterRoutes(protected, %[1]s.NewHandler(%[1]sSvc), rbacSvc)\n\n", spec.Name) //nolint:forbidigo
+	fmt.Println("Then run:")                                                                              //nolint:forbidigo
+	fmt.Println("    make migrate")                                                                       //nolint:forbidigo
+	fmt.Println("    make seed")                                                                          //nolint:forbidigo
 }
 
 func renderTo(spec ModuleSpec, tmplPath, outPath string) {
