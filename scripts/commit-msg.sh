@@ -33,7 +33,7 @@ COMMIT_MSG=$(head -1 "$COMMIT_MSG_FILE")
 PATTERN='^(feat|fix|refactor|docs|test|chore|style|perf|ci|build|revert)(\([a-z0-9_/-]+\))?!?: .{1,100}$'
 
 if ! echo "$COMMIT_MSG" | grep -qE "$PATTERN"; then
-  echo "ERROR: Commit message does not follow Conventional Commits format."
+  echo "ERROR: Commit message does not follow Conventional Commits format or above 100 characters."
   echo ""
   echo "Expected: <type>(<scope>): <description>"
   echo ""
