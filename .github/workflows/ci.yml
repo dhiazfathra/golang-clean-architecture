@@ -194,7 +194,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Run gosec
-        uses: securego/gosec@master
+        uses: securego/gosec@v2.24.7
         with:
           args: -fmt sarif -out gosec.sarif ./...
       - name: Upload SARIF
