@@ -1,11 +1,290 @@
 package main
 
 import (
+	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+// testDeps returns a Dependencies configured for testing.
+// renderCalls accumulates every (tmpl, dest) pair passed to RenderTo.
+func testDeps(
+	stderr *bytes.Buffer,
+	mkdirErr error,
+	renderCalls *[][]string,
+	now time.Time,
+) Dependencies {
+	if renderCalls == nil {
+		calls := [][]string{}
+		renderCalls = &calls
+	}
+	return Dependencies{
+		Stderr: stderr,
+		MkdirAll: func(path string, perm os.FileMode) error {
+			return mkdirErr
+		},
+		RenderTo: func(spec ModuleSpec, tmpl, dest string) {
+			*renderCalls = append(*renderCalls, []string{tmpl, dest})
+		},
+		Now: func() time.Time { return now },
+		Printf: func(format string, a ...any) (int, error) {
+			return 0, nil
+		},
+		Println: func(a ...any) (int, error) {
+			return 0, nil
+		},
+	}
+}
+
+var fixedTime = time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+func TestRun_MissingModuleFlag_ReturnsOne(t *testing.T) {
+	var stderr bytes.Buffer
+	calls := [][]string{}
+	deps := testDeps(&stderr, nil, &calls, fixedTime)
+
+	code := run([]string{}, deps)
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "usage:") {
+		t.Errorf("expected usage message in stderr, got: %q", stderr.String())
+	}
+	if len(calls) != 0 {
+		t.Errorf("expected no render calls, got %d", len(calls))
+	}
+}
+
+func TestRun_InvalidFlag_ReturnsOne(t *testing.T) {
+	var stderr bytes.Buffer
+	deps := testDeps(&stderr, nil, nil, fixedTime)
+
+	code := run([]string{"-unknown-flag"}, deps)
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1 for unknown flag, got %d", code)
+	}
+}
+
+func TestRun_MkdirAllFails_OutDir_ReturnsOne(t *testing.T) {
+	var stderr bytes.Buffer
+	deps := testDeps(&stderr, errors.New("permission denied"), nil, fixedTime)
+
+	code := run([]string{"-module=product"}, deps)
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "permission denied") {
+		t.Errorf("expected error message in stderr, got: %q", stderr.String())
+	}
+}
+
+func TestRun_MkdirAllFails_ApiPathsDir_ReturnsOne(t *testing.T) {
+	var stderr bytes.Buffer
+	callCount := 0
+	calls := [][]string{}
+	deps := Dependencies{
+		Stderr: &stderr,
+		MkdirAll: func(path string, perm os.FileMode) error {
+			callCount++
+			// Fail on the second call (api/paths dir)
+			if callCount == 2 {
+				return errors.New("api paths mkdir failed")
+			}
+			return nil
+		},
+		RenderTo: func(spec ModuleSpec, tmpl, dest string) {
+			calls = append(calls, []string{tmpl, dest})
+		},
+		Now: func() time.Time { return fixedTime },
+		Printf: func(format string, a ...any) (int, error) {
+			return 0, nil
+		},
+		Println: func(a ...any) (int, error) {
+			return 0, nil
+		},
+	}
+
+	code := run([]string{"-module=product"}, deps)
+
+	if code != 1 {
+		t.Fatalf("expected exit code 1, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "api paths mkdir failed") {
+		t.Errorf("expected error in stderr, got: %q", stderr.String())
+	}
+}
+
+func TestRun_Success_AllFilesRendered(t *testing.T) {
+	var stderr bytes.Buffer
+	calls := [][]string{}
+	deps := testDeps(&stderr, nil, &calls, fixedTime)
+
+	code := run([]string{"-module=product", "-fields=name:string,price:float64"}, deps)
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d (stderr: %s)", code, stderr.String())
+	}
+
+	// 9 source + 5 test + 2 migration + 1 openapi = 17 render calls
+	const expectedCalls = 17
+	if len(calls) != expectedCalls {
+		t.Errorf("expected %d render calls, got %d", expectedCalls, len(calls))
+	}
+}
+
+func TestRun_Success_SpecFieldsCorrect(t *testing.T) {
+	var stderr bytes.Buffer
+	var capturedSpec ModuleSpec
+	deps := Dependencies{
+		Stderr:   &stderr,
+		MkdirAll: func(path string, perm os.FileMode) error { return nil },
+		RenderTo: func(spec ModuleSpec, tmpl, dest string) {
+			capturedSpec = spec // capture last (all are same spec)
+		},
+		Now: func() time.Time { return fixedTime },
+		Printf: func(format string, a ...any) (int, error) {
+			return 0, nil
+		},
+		Println: func(a ...any) (int, error) {
+			return 0, nil
+		},
+	}
+
+	code := run([]string{"-module=order", "-fields=total:float64"}, deps)
+
+	if code != 0 {
+		t.Fatalf("unexpected exit code %d", code)
+	}
+	if capturedSpec.Name != "order" {
+		t.Errorf("expected Name=order, got %q", capturedSpec.Name)
+	}
+	if capturedSpec.NameTitle != "Order" {
+		t.Errorf("expected NameTitle=Order, got %q", capturedSpec.NameTitle)
+	}
+	if capturedSpec.NamePlural != "orders" {
+		t.Errorf("expected NamePlural=orders, got %q", capturedSpec.NamePlural)
+	}
+	if capturedSpec.ModPath != "github.com/dhiazfathra/golang-clean-architecture" {
+		t.Errorf("unexpected ModPath: %q", capturedSpec.ModPath)
+	}
+	if capturedSpec.Timestamp != "20240115120000" {
+		t.Errorf("expected Timestamp=20240115120000, got %q", capturedSpec.Timestamp)
+	}
+	if len(capturedSpec.Fields) != 1 || capturedSpec.Fields[0].Name != "total" {
+		t.Errorf("unexpected Fields: %+v", capturedSpec.Fields)
+	}
+}
+
+func TestRun_Success_OutputPaths(t *testing.T) {
+	var stderr bytes.Buffer
+	calls := [][]string{}
+	deps := testDeps(&stderr, nil, &calls, fixedTime)
+
+	code := run([]string{"-module=widget"}, deps)
+
+	if code != 0 {
+		t.Fatalf("expected exit code 0, got %d", code)
+	}
+
+	// Verify some key output destinations
+	outDir := filepath.Join("pkg", "module", "widget")
+	wantDests := []string{
+		filepath.Join(outDir, "model.go"),
+		filepath.Join(outDir, "service.go"),
+		filepath.Join(outDir, "handler.go"),
+		filepath.Join(outDir, "service_test.go"),
+		filepath.Join("api", "paths", "widget.yaml"),
+	}
+
+	destSet := map[string]bool{}
+	for _, c := range calls {
+		destSet[c[1]] = true
+	}
+	for _, want := range wantDests {
+		if !destSet[want] {
+			t.Errorf("expected render dest %q not found in calls", want)
+		}
+	}
+
+	// Verify migration files contain the timestamp
+	ts := fixedTime.UTC().Format("20060102150405")
+	migUpDest := filepath.Join("migrations", ts+"_widget_read.up.sql")
+	migDownDest := filepath.Join("migrations", ts+"_widget_read.down.sql")
+	if !destSet[migUpDest] {
+		t.Errorf("expected migration up dest %q not found", migUpDest)
+	}
+	if !destSet[migDownDest] {
+		t.Errorf("expected migration down dest %q not found", migDownDest)
+	}
+}
+
+func TestRun_NoFields_SucceedsWithEmptyFields(t *testing.T) {
+	var stderr bytes.Buffer
+	var capturedSpec ModuleSpec
+	deps := Dependencies{
+		Stderr:   &stderr,
+		MkdirAll: func(path string, perm os.FileMode) error { return nil },
+		RenderTo: func(spec ModuleSpec, tmpl, dest string) {
+			capturedSpec = spec
+		},
+		Now: func() time.Time { return fixedTime },
+		Printf: func(format string, a ...any) (int, error) {
+			return 0, nil
+		},
+		Println: func(a ...any) (int, error) {
+			return 0, nil
+		},
+	}
+
+	code := run([]string{"-module=thing"}, deps)
+
+	if code != 0 {
+		t.Fatalf("unexpected exit code %d", code)
+	}
+	if len(capturedSpec.Fields) != 0 {
+		t.Errorf("expected empty fields, got %+v", capturedSpec.Fields)
+	}
+}
+
+func TestDefaultDeps_NotNil(t *testing.T) {
+	deps := defaultDeps()
+	if deps.Stderr == nil {
+		t.Error("Stderr should not be nil")
+	}
+	if deps.MkdirAll == nil {
+		t.Error("MkdirAll should not be nil")
+	}
+	if deps.RenderTo == nil {
+		t.Error("RenderTo should not be nil")
+	}
+	if deps.Now == nil {
+		t.Error("Now should not be nil")
+	}
+	if deps.Exit == nil {
+		t.Error("Exit should not be nil")
+	}
+	if deps.Printf == nil {
+		t.Error("Printf should not be nil")
+	}
+	if deps.Println == nil {
+		t.Error("Println should not be nil")
+	}
+}
 
 // ---------------------------------------------------------------------------
 // goType

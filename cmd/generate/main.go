@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -29,14 +30,46 @@ type FieldSpec struct {
 	DBTag      string // "price"
 }
 
-func main() {
-	modName := flag.String("module", "", "module name (e.g. product)")
-	fieldsRaw := flag.String("fields", "", "comma-separated name:type pairs (e.g. name:string,price:float64)")
-	flag.Parse()
+// Dependencies bundles I/O and FS operations so they can be swapped in tests.
+type Dependencies struct {
+	Stderr   io.Writer
+	MkdirAll func(path string, perm os.FileMode) error
+	RenderTo func(spec ModuleSpec, tmpl, dest string)
+	Now      func() time.Time
+	Exit     func(code int)
+	Printf   func(format string, a ...any) (int, error)
+	Println  func(a ...any) (int, error)
+}
+
+// defaultDeps returns production-ready dependencies.
+func defaultDeps() Dependencies {
+	return Dependencies{
+		Stderr:   os.Stderr,
+		MkdirAll: os.MkdirAll,
+		RenderTo: renderTo,
+		Now:      time.Now,
+		Exit:     os.Exit,
+		Printf:   fmt.Printf,  //nolint:forbidigo // allowed for CLI output
+		Println:  fmt.Println, //nolint:forbidigo // allowed for CLI output
+	}
+}
+
+// run contains all logic previously in main, making it fully testable.
+// It returns an exit code (0 = success, non-zero = failure).
+func run(args []string, deps Dependencies) int {
+	fs := flag.NewFlagSet("generate", flag.ContinueOnError)
+	fs.SetOutput(deps.Stderr)
+
+	modName := fs.String("module", "", "module name (e.g. product)")
+	fieldsRaw := fs.String("fields", "", "comma-separated name:type pairs (e.g. name:string,price:float64)")
+
+	if err := fs.Parse(args); err != nil {
+		return 1
+	}
 
 	if *modName == "" {
-		fmt.Fprintln(os.Stderr, "usage: generate -module=<name> -fields=<name:type,...>")
-		os.Exit(1)
+		fmt.Fprintln(deps.Stderr, "usage: generate -module=<name> -fields=<name:type,...>")
+		return 1
 	}
 
 	spec := ModuleSpec{
@@ -44,61 +77,73 @@ func main() {
 		NameTitle:  strings.Title(*modName), //nolint:staticcheck
 		NamePlural: *modName + "s",
 		ModPath:    "github.com/dhiazfathra/golang-clean-architecture",
-		Timestamp:  time.Now().UTC().Format("20060102150405"),
+		Timestamp:  deps.Now().UTC().Format("20060102150405"),
 		Fields:     parseFields(*fieldsRaw),
 	}
 
 	outDir := filepath.Join("pkg", "module", spec.Name)
 	// G301 — Directory permissions too broad if using 0o755
-	if err := os.MkdirAll(outDir, 0o750); err != nil {
-		panic(err)
+	if err := deps.MkdirAll(outDir, 0o750); err != nil {
+		fmt.Fprintln(deps.Stderr, err)
+		return 1
 	}
 
 	// Source files
-	renderTo(spec, "templates/module/model.go.tmpl", filepath.Join(outDir, "model.go"))
-	renderTo(spec, "templates/module/projections.go.tmpl", filepath.Join(outDir, "projections.go"))
-	renderTo(spec, "templates/module/projector.go.tmpl", filepath.Join(outDir, "projector.go"))
-	renderTo(spec, "templates/module/repository.go.tmpl", filepath.Join(outDir, "repository.go"))
-	renderTo(spec, "templates/module/repository_pg.go.tmpl", filepath.Join(outDir, "repository_pg.go"))
-	renderTo(spec, "templates/module/service.go.tmpl", filepath.Join(outDir, "service.go"))
-	renderTo(spec, "templates/module/handler.go.tmpl", filepath.Join(outDir, "handler.go"))
-	renderTo(spec, "templates/module/routes.go.tmpl", filepath.Join(outDir, "routes.go"))
-	renderTo(spec, "templates/module/register.go.tmpl", filepath.Join(outDir, "register.go"))
+	deps.RenderTo(spec, "templates/module/model.go.tmpl", filepath.Join(outDir, "model.go"))
+	deps.RenderTo(spec, "templates/module/projections.go.tmpl", filepath.Join(outDir, "projections.go"))
+	deps.RenderTo(spec, "templates/module/projector.go.tmpl", filepath.Join(outDir, "projector.go"))
+	deps.RenderTo(spec, "templates/module/repository.go.tmpl", filepath.Join(outDir, "repository.go"))
+	deps.RenderTo(spec, "templates/module/repository_pg.go.tmpl", filepath.Join(outDir, "repository_pg.go"))
+	deps.RenderTo(spec, "templates/module/service.go.tmpl", filepath.Join(outDir, "service.go"))
+	deps.RenderTo(spec, "templates/module/handler.go.tmpl", filepath.Join(outDir, "handler.go"))
+	deps.RenderTo(spec, "templates/module/routes.go.tmpl", filepath.Join(outDir, "routes.go"))
+	deps.RenderTo(spec, "templates/module/register.go.tmpl", filepath.Join(outDir, "register.go"))
 
 	// Test files
-	renderTo(spec, "templates/module/service_test.go.tmpl", filepath.Join(outDir, "service_test.go"))
-	renderTo(spec, "templates/module/handler_test.go.tmpl", filepath.Join(outDir, "handler_test.go"))
-	renderTo(spec, "templates/module/projector_test.go.tmpl", filepath.Join(outDir, "projector_test.go"))
-	renderTo(spec, "templates/module/repository_pg_test.go.tmpl", filepath.Join(outDir, "repository_pg_test.go"))
-	renderTo(spec, "templates/module/routes_test.go.tmpl", filepath.Join(outDir, "routes_test.go"))
+	deps.RenderTo(spec, "templates/module/service_test.go.tmpl", filepath.Join(outDir, "service_test.go"))
+	deps.RenderTo(spec, "templates/module/handler_test.go.tmpl", filepath.Join(outDir, "handler_test.go"))
+	deps.RenderTo(spec, "templates/module/projector_test.go.tmpl", filepath.Join(outDir, "projector_test.go"))
+	deps.RenderTo(spec, "templates/module/repository_pg_test.go.tmpl", filepath.Join(outDir, "repository_pg_test.go"))
+	deps.RenderTo(spec, "templates/module/routes_test.go.tmpl", filepath.Join(outDir, "routes_test.go"))
 
 	// Migrations
 	migUp := filepath.Join("migrations", spec.Timestamp+"_"+spec.Name+"_read.up.sql")
 	migDown := filepath.Join("migrations", spec.Timestamp+"_"+spec.Name+"_read.down.sql")
-	renderTo(spec, "templates/module/migration.up.sql.tmpl", migUp)
-	renderTo(spec, "templates/module/migration.down.sql.tmpl", migDown)
+	deps.RenderTo(spec, "templates/module/migration.up.sql.tmpl", migUp)
+	deps.RenderTo(spec, "templates/module/migration.down.sql.tmpl", migDown)
 
-	// OpenAPI path fragment (merge into api/openapi.yaml manually)
+	// OpenAPI path fragment
 	apiPathsDir := filepath.Join("api", "paths")
 	// G301 — Directory permissions too broad if using 0o755
-	if err := os.MkdirAll(apiPathsDir, 0o750); err != nil {
-		panic(err)
+	if err := deps.MkdirAll(apiPathsDir, 0o750); err != nil {
+		fmt.Fprintln(deps.Stderr, err)
+		return 1
 	}
-	renderTo(spec, "templates/module/openapi_paths.yaml.tmpl",
+	deps.RenderTo(spec, "templates/module/openapi_paths.yaml.tmpl",
 		filepath.Join(apiPathsDir, spec.Name+".yaml"))
 
-	fmt.Printf("\n✓ Generated module: %s/ (9 files + 5 test files)\n", outDir)                            //nolint:forbidigo
-	fmt.Printf("✓ Generated migration: %s\n\n", migUp)                                                    //nolint:forbidigo
-	fmt.Printf("✓ Generated OpenAPI fragment: api/paths/%s.yaml\n", spec.Name)                            //nolint:forbidigo
-	fmt.Printf("  → Merge into api/openapi.yaml paths section\n\n")                                       //nolint:forbidigo
-	fmt.Printf("Add to cmd/server/main.go:\n\n")                                                          //nolint:forbidigo
-	fmt.Printf("    %[1]sProjector := %[1]s.NewProjector(db)\n", spec.Name)                               //nolint:forbidigo
-	fmt.Printf("    runner.Register(%[1]sProjector)\n", spec.Name)                                        //nolint:forbidigo
-	fmt.Printf("    %[1]sSvc := %[1]s.NewService(es, %[1]s.NewPgReadRepository(db))\n", spec.Name)        //nolint:forbidigo
-	fmt.Printf("    %[1]s.RegisterRoutes(protected, %[1]s.NewHandler(%[1]sSvc), rbacSvc)\n\n", spec.Name) //nolint:forbidigo
-	fmt.Println("Then run:")                                                                              //nolint:forbidigo
-	fmt.Println("    make migrate")                                                                       //nolint:forbidigo
-	fmt.Println("    make seed")                                                                          //nolint:forbidigo
+	deps.Printf("\n✓ Generated module: %s/ (9 files + 5 test files)\n", outDir)                            //nolint:forbidigo
+	deps.Printf("✓ Generated migration: %s\n\n", migUp)                                                    //nolint:forbidigo
+	deps.Printf("✓ Generated OpenAPI fragment: api/paths/%s.yaml\n", spec.Name)                            //nolint:forbidigo
+	deps.Printf("  → Merge into api/openapi.yaml paths section\n\n")                                       //nolint:forbidigo
+	deps.Printf("Add to cmd/server/main.go:\n\n")                                                          //nolint:forbidigo
+	deps.Printf("    %[1]sProjector := %[1]s.NewProjector(db)\n", spec.Name)                               //nolint:forbidigo
+	deps.Printf("    runner.Register(%[1]sProjector)\n", spec.Name)                                        //nolint:forbidigo
+	deps.Printf("    %[1]sSvc := %[1]s.NewService(es, %[1]s.NewPgReadRepository(db))\n", spec.Name)        //nolint:forbidigo
+	deps.Printf("    %[1]s.RegisterRoutes(protected, %[1]s.NewHandler(%[1]sSvc), rbacSvc)\n\n", spec.Name) //nolint:forbidigo
+	deps.Println("Then run:")                                                                              //nolint:forbidigo
+	deps.Println("    make migrate")                                                                       //nolint:forbidigo
+	deps.Println("    make seed")                                                                          //nolint:forbidigo
+
+	return 0
+}
+
+func main() {
+	deps := defaultDeps()
+	code := run(os.Args[1:], deps)
+	if code != 0 {
+		deps.Exit(code)
+	}
 }
 
 func renderTo(spec ModuleSpec, tmplPath, outPath string) {
