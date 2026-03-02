@@ -1,7 +1,6 @@
 package order_test
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,47 +13,12 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 )
 
-// ---------------------------------------------------------------------------
-// Mock EventStore
-// ---------------------------------------------------------------------------
-
-type mockEventStore struct{}
-
-func (m *mockEventStore) Append(ctx context.Context, events []eventstore.Event) error {
-	return nil
-}
-func (m *mockEventStore) Load(ctx context.Context, aggregateType, aggregateID string, fromVersion int) ([]eventstore.Event, error) {
-	return nil, nil
-}
-
-// ---------------------------------------------------------------------------
-// Mock ReadRepository
-// ---------------------------------------------------------------------------
-
-type mockReadRepository struct{}
-
-func (m *mockReadRepository) GetRoleByID(ctx context.Context, id string) (*rbac.RoleReadModel, error) {
-	return nil, nil
-}
-func (m *mockReadRepository) GetRoleByName(ctx context.Context, name string) (*rbac.RoleReadModel, error) {
-	return nil, nil
-}
-func (m *mockReadRepository) ListRoles(ctx context.Context) ([]rbac.RoleReadModel, error) {
-	return nil, nil
-}
-func (m *mockReadRepository) GetPermissionsForRole(ctx context.Context, roleID string) ([]rbac.PermissionReadModel, error) {
-	return nil, nil
-}
-func (m *mockReadRepository) GetRolesForUser(ctx context.Context, userID string) ([]string, error) {
-	return nil, nil
-}
-
 func TestRegisterRoutes(t *testing.T) {
 	e := echo.New()
 	g := e.Group("/api")
 
-	mockHandler := &order.Handler{}                                      // or use a mock if Handler has dependencies
-	rbacSvc := rbac.NewService(&mockEventStore{}, &mockReadRepository{}) // or mock it
+	mockHandler := &order.Handler{}                                                      // or use a mock if Handler has dependencies
+	rbacSvc := rbac.NewService(&eventstore.MockEventStore{}, &rbac.MockReadRepository{}) // or mock it
 
 	order.RegisterRoutes(g, mockHandler, rbacSvc)
 
