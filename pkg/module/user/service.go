@@ -12,6 +12,19 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/snowflake"
 )
 
+// UserService is the subset of user.Service methods used by the adapters.
+// Declaring it as an interface allows the adapters to be tested with a mock.
+type UserService interface {
+	GetByID(ctx context.Context, id string) (*UserReadModel, error)
+	GetByEmailForAuth(ctx context.Context, email string) (*auth.UserRecord, error)
+	GetByEmailForSeeder(ctx context.Context, email string) (*seeder.UserRecord, error)
+	CreateUserForSeeder(ctx context.Context, cmd seeder.CreateUserCmd) (string, error)
+	AssignRole(ctx context.Context, userID, roleID, actor string) error
+}
+
+// Compile-time check: *user.Service must satisfy UserService.
+var _ UserService = (*Service)(nil)
+
 type CreateUserCmd struct {
 	Email    string
 	Password string //nolint:gosec // G117: false positive, this is a command object not a hardcoded secret

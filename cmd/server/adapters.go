@@ -8,23 +8,23 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
 )
 
-// orderUserProvider bridges user.Service → order.UserProvider.
-type orderUserProvider struct{ svc *user.Service }
+// orderUserProvider bridges userService → order.UserProvider.
+type orderUserProvider struct{ svc user.UserService }
 
 func (a *orderUserProvider) GetByID(ctx context.Context, id string) (bool, error) {
 	u, err := a.svc.GetByID(ctx, id)
 	return u != nil, err
 }
 
-// authUserAdapter bridges user.Service → auth.UserProvider.
-type authUserAdapter struct{ svc *user.Service }
+// authUserAdapter bridges userService → auth.UserProvider.
+type authUserAdapter struct{ svc user.UserService }
 
 func (a *authUserAdapter) GetByEmail(ctx context.Context, email string) (*auth.UserRecord, error) {
 	return a.svc.GetByEmailForAuth(ctx, email)
 }
 
-// seederUserAdapter bridges user.Service → seeder.UserCreator.
-type seederUserAdapter struct{ svc *user.Service }
+// seederUserAdapter bridges userService → seeder.UserCreator.
+type seederUserAdapter struct{ svc user.UserService }
 
 func (a *seederUserAdapter) CreateUser(ctx context.Context, cmd seeder.CreateUserCmd) (string, error) {
 	return a.svc.CreateUserForSeeder(ctx, cmd)
