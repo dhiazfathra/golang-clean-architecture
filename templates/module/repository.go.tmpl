@@ -8,13 +8,14 @@ type ReadRepository interface {
 }
 
 type ListRequest struct {
-	Page     int    `query:"page"     json:"page"`
+	Page     int    `query:"page"      json:"page"`
 	PageSize int    `query:"page_size" json:"page_size"`
-	SortBy   string `query:"sort_by"  json:"sort_by"`
-	SortDir  string `query:"sort_dir" json:"sort_dir"`
+	SortBy   string `query:"sort_by"   json:"sort_by"`
+	SortDir  string `query:"sort_dir"  json:"sort_dir"`
 }
 
 type ListResponse struct {
-	Items                            []{{.NameTitle}}ReadModel
-	Total, Page, PageSize, TotalPages int
+	Items                      []{{.NameTitle}}ReadModel
+    Total                      int64
+    Page, PageSize, TotalPages int
 }

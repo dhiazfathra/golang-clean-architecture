@@ -13,6 +13,7 @@ type ListRequest struct {
 }
 
 type ListResponse struct {
-	Items                             []OrderReadModel
-	Total, Page, PageSize, TotalPages int
+	Items                      []OrderReadModel
+	Total                      int64
+	Page, PageSize, TotalPages int
 }

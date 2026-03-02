@@ -256,7 +256,7 @@ func TestPaginatedSelect(t *testing.T) {
 	result, err := PaginatedSelect[testRow](context.Background(), db,
 		"SELECT id, name, is_deleted FROM users", req, allowed)
 	require.NoError(t, err)
-	assert.Equal(t, 2, result.Total)
+	assert.Equal(t, int64(2), result.Total)
 	assert.Len(t, result.Items, 2)
 	assert.Equal(t, 1, result.TotalPages)
 }
@@ -275,7 +275,7 @@ func TestPaginatedSelectUnknownSort(t *testing.T) {
 	result, err := PaginatedSelect[testRow](context.Background(), db,
 		"SELECT id, name, is_deleted FROM users", req, allowed)
 	require.NoError(t, err)
-	assert.Equal(t, 0, result.Total)
+	assert.Equal(t, int64(0), result.Total)
 }
 
 func TestPaginatedSelectCountError(t *testing.T) {

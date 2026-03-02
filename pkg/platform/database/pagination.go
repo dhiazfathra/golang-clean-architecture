@@ -30,11 +30,11 @@ func (r *PageRequest) Normalise(defaultSort string) {
 }
 
 type PageResponse[T any] struct {
-	Items      []T `json:"items"`
-	Total      int `json:"total"`
-	Page       int `json:"page"`
-	PageSize   int `json:"page_size"`
-	TotalPages int `json:"total_pages"`
+	Items      []T   `json:"items"`
+	Total      int64 `json:"total"`
+	Page       int   `json:"page"`
+	PageSize   int   `json:"page_size"`
+	TotalPages int   `json:"total_pages"`
 }
 
 // PaginatedSelect runs a count + paginated SELECT with is_deleted filtering.
@@ -55,7 +55,7 @@ func PaginatedSelect[T any](
 		}
 	}
 	filtered := "SELECT * FROM (" + baseQuery + ") AS _t WHERE _t.is_deleted = false"
-	var total int
+	var total int64
 	if err := db.GetContext(ctx, &total, "SELECT COUNT(*) FROM ("+filtered+") AS _c", args...); err != nil {
 		return nil, err
 	}
@@ -67,7 +67,8 @@ func PaginatedSelect[T any](
 	if err := db.SelectContext(ctx, &items, ordered, args...); err != nil {
 		return nil, err
 	}
-	totalPages := (total + req.PageSize - 1) / req.PageSize
+	pageSize := int64(req.PageSize)
+	totalPages := int((total + pageSize - 1) / pageSize)
 	return &PageResponse[T]{
 		Items: items, Total: total, Page: req.Page,
 		PageSize: req.PageSize, TotalPages: totalPages,
