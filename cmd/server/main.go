@@ -2,6 +2,12 @@ package main
 
 import (
 	"context"
+	"errors"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
@@ -38,7 +44,11 @@ func main() {
 		MaxIdleConns: cfg.DBMaxIdleConns,
 		ServiceName:  cfg.ServiceName + "-db",
 	})
+	defer db.Close()
+
 	vk := session.MustConnectValkey(cfg.ValkeyURL)
+	defer vk.Close()
+
 	es := eventstore.NewPgStore(db)
 
 	sessionStore := session.NewValkeyStore(vk)
@@ -58,18 +68,20 @@ func main() {
 	orderReadRepo := order.NewPgReadRepository(db)
 	orderSvc := order.NewService(es, orderReadRepo, &orderUserProvider{userSvc})
 
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	runner := eventstore.NewProjectionRunner(db, es)
 	runner.Register(rbacProjector)
 	runner.Register(userProjector)
 	runner.Register(orderProjector)
-	// TODO: Tech Debt - Support running background jobs concurrently with the HTTP API during unit/integration testing.
-	runner.Start(context.Background())
+	runner.Start(ctx)
 
 	ffRepo := featureflag.NewRepository(db)
 	ffSvc := featureflag.NewService(ffRepo, vk, cfg.FeatureFlagRefreshTTL)
-	ffSvc.StartRefresh(context.Background())
+	ffSvc.StartRefresh(ctx)
 
-	if err := seeder.Seed(context.Background(), rbacSvc, &seederUserAdapter{userSvc},
+	if err := seeder.Seed(ctx, rbacSvc, &seederUserAdapter{userSvc},
 		cfg.SeedSuperAdminPassword, cfg.SeedDefaultModulePassword); err != nil {
 		panic("seeder: " + err.Error())
 	}
@@ -85,7 +97,27 @@ func main() {
 		OrderSvc:     orderSvc,
 		FFSvc:        ffSvc,
 	})
-	e.Logger.Fatal(e.Start(cfg.ListenAddr))
+
+	go func() {
+		if err := e.Start(cfg.ListenAddr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			e.Logger.Fatal("shutting down the server")
+		}
+	}()
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	e.Logger.Info("shutting down server...")
+
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	if err := e.Shutdown(shutdownCtx); err != nil {
+		e.Logger.Fatal(err)
+	}
+
+	e.Logger.Info("server gracefully stopped")
 }
 
 // RouterDeps holds all the dependencies required to set up the HTTP router.
