@@ -21,7 +21,12 @@ cover:
 	@echo "Coverage: $$(go tool cover -func=cover.out | grep total | awk '{print $$3}' | tr -d '%')%"
 
 cover-html:
-	go test ./...  -coverpkg=./... -coverprofile ./cover.out && go tool cover -html ./cover.out
+	go test ./... -coverpkg=./... -coverprofile ./cover.out && go tool cover -html ./cover.out
+	@echo "Coverage: $$(go tool cover -func=cover.out | grep total | awk '{print $$3}' | tr -d '%')%"
+
+cover-html-no-cache:
+	go test ./... -count=1 -coverpkg=./... -coverprofile ./cover.out && go tool cover -html ./cover.out
+	@echo "Coverage: $$(go tool cover -func=cover.out | grep total | awk '{print $$3}' | tr -d '%')%"
 
 migrate:
 	@echo "Applying migrations..."
