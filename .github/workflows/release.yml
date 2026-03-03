@@ -17,7 +17,8 @@ jobs:
     permissions:
       contents: read
       security-events: write
-    secrets: inherit
+    secrets:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   release:
     name: Semantic Release
