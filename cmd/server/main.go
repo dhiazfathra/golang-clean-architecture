@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -30,7 +31,22 @@ import (
 )
 
 func main() {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	if err := run(quit); err != nil {
+		_, _ = fmt.Fprintln(os.Stderr, "fatal:", err)
+		os.Exit(1)
+	}
+}
+
+// run wires all dependencies, starts the HTTP server, and blocks until a
+// signal arrives on quit (or the channel is closed). Accepting the signal
+// channel as a parameter makes the entire shutdown path testable without
+// spawning a real OS process.
+func run(quit <-chan os.Signal) error {
 	cfg := config.MustLoad()
+
 	observability.Init(observability.InitConfig{
 		ServiceName:     cfg.ServiceName,
 		Env:             cfg.Env,
@@ -83,7 +99,7 @@ func main() {
 
 	if err := seeder.Seed(ctx, rbacSvc, &seederUserAdapter{userSvc},
 		cfg.SeedSuperAdminPassword, cfg.SeedDefaultModulePassword); err != nil {
-		panic("seeder: " + err.Error())
+		return fmt.Errorf("seeder: %w", err)
 	}
 
 	e := setupRouter(RouterDeps{
@@ -98,27 +114,45 @@ func main() {
 		FFSvc:        ffSvc,
 	})
 
+	return startAndAwaitShutdown(e, cfg.ListenAddr, quit)
+}
+
+// startAndAwaitShutdown starts e in a goroutine, waits for a quit signal or a
+// hard server error, then performs a 30-second graceful shutdown.
+// It is its own function so tests can drive it with a synthetic signal channel
+// and a pre-configured Echo instance — no real infrastructure required.
+func startAndAwaitShutdown(e *echo.Echo, addr string, quit <-chan os.Signal) error {
+	serverErr := make(chan error, 1)
+
 	go func() {
-		if err := e.Start(cfg.ListenAddr); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			e.Logger.Fatal("shutting down the server")
+		if err := e.Start(addr); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			serverErr <- err
 		}
 	}()
 
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
-	<-quit
+	select {
+	case err := <-serverErr:
+		return fmt.Errorf("server error: %w", err)
+	case <-quit:
+		// normal shutdown path — fall through
+	}
 
 	e.Logger.Info("shutting down server...")
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer shutdownCancel()
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
 
 	if err := e.Shutdown(shutdownCtx); err != nil {
-		e.Logger.Fatal(err)
+		return fmt.Errorf("shutdown: %w", err)
 	}
 
 	e.Logger.Info("server gracefully stopped")
+	return nil
 }
+
+// ---------------------------------------------------------------------------
+// RouterDeps + setupRouter
+// ---------------------------------------------------------------------------
 
 // RouterDeps holds all the dependencies required to set up the HTTP router.
 type RouterDeps struct {
