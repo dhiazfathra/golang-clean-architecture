@@ -2,6 +2,9 @@ name: CI
 
 on:
   workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: true
 
 env:
   GO_VERSION: "1.26"
@@ -83,6 +86,8 @@ jobs:
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           slug: dhiazfathra/golang-clean-architecture
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
   # ── SQL Migration Validation ──
   sql-validate:
