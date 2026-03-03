@@ -1,0 +1,213 @@
+# =============================================================================
+# codecov.yml — Exhaustive Codecov configuration for a Go project
+# Best practices applied; unused options are commented out.
+# Codecov docs: https://docs.codecov.com/docs/codecov-yaml
+# Validate with: curl -X POST --data-binary @codecov.yml https://codecov.io/validate
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# codecov: — Global Codecov behavior
+# -----------------------------------------------------------------------------
+codecov:
+  # Maximum time (seconds) Codecov waits for all reports before processing.
+  # For Go projects a single report is typical; keep this low.
+  notify:
+    after_n_builds: 1 # Process as soon as 1 upload is received
+    #countdown: 10          # Seconds to wait before firing notifications
+    #delay: 20              # Seconds to delay each individual notification
+    #wait_for_ci: true      # Wait for all CI statuses to complete first
+
+  # Require a CI provider to be detected before accepting uploads.
+  require_ci_to_pass: true
+
+  # Bot username used for PR comments (defaults to "codecov-io")
+  # bot: "codecov-io"
+
+  # Disable strict YAML validation (not recommended — keep strict)
+  # strict_yaml_branch: main
+
+  # Branch used as the base for comparison (default: repo default branch)
+  # branch: main
+
+  # Maximum allowed clock drift between upload and processing (seconds)
+  # max_report_age: 12h     # e.g. "12h", "1d"; helps reject stale reports
+
+  # Disable automatic token verification (not recommended)
+  # disable_default_path_fixes: false
+
+# -----------------------------------------------------------------------------
+# coverage: — Coverage thresholds and change behavior
+# -----------------------------------------------------------------------------
+coverage:
+  # ---- Precision & rounding ----
+  precision: 2 # Decimal places shown (0–5)
+  round: down # "down" | "up" | "nearest" — conservative rounding
+  range: "70...100" # Green zone: 70 % → 100 %. Below 70 % turns red.
+
+  # ---- Status checks sent to your VCS (GitHub/GitLab/Bitbucket) ----
+  status:
+    # -- Project check: overall repository coverage --
+    project:
+      default:
+        target: "80%" # Minimum acceptable total coverage
+        threshold: "1%" # Allow up to 1 % drop before failing
+        #base: auto               # Compare against: "auto" | "parent" | "pr"
+        #branches:                # Limit check to specific branches
+        #  - main
+        #  - "release/*"
+        #flags:                   # Tie this check to a specific flag
+        #  - unit
+        #paths:                   # Scope to specific paths
+        #  - "internal/"
+        if_no_uploads: error # Fail if no coverage report is uploaded
+        if_not_found: success # Pass if no base commit exists yet
+        if_ci_failed: error # Fail if the CI job itself failed
+
+    # -- Patch check: coverage of lines changed in this PR --
+    patch:
+      default:
+        target: "80%" # New/changed lines must be ≥ 80 % covered
+        threshold: "1%" # Allow up to 1 % drop on the patch
+        #base: auto
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
+
+    # -- Changes check: previously-covered lines that are now uncovered --
+    changes:
+      default:
+        #enabled: true            # Uncomment to enable the "changes" check
+        if_no_uploads: error
+        if_not_found: success
+        if_ci_failed: error
+
+  # ---- Coverage flags (useful for unit vs integration split) ----
+  # flags:
+  #   unit:
+  #     paths:
+  #       - "internal/"
+  #       - "pkg/"
+  #     carryforward: true        # Carry forward flag result when not uploaded
+  #   integration:
+  #     paths:
+  #       - "e2e/"
+  #     carryforward: true
+
+# -----------------------------------------------------------------------------
+# parsers: — How Codecov interprets report formats
+# -----------------------------------------------------------------------------
+parsers:
+  go:
+    partials_as_hits: false # Treat partial-branch coverage as a miss (strict)
+  #gcov:
+  #  branch_detection:
+  #    conditional: true
+  #    loop: true
+  #    macro: false
+  #    method: false
+
+# -----------------------------------------------------------------------------
+# ignore: — Paths excluded from coverage calculations
+# Accepts glob patterns. Go-specific exclusions below.
+# -----------------------------------------------------------------------------
+ignore:
+  - "**/*_test.go" # Test files themselves (they aren't production code)
+  - "**/mock_*.go" # Generated mocks
+  - "**/mocks/**" # Mock packages
+  - "**/testdata/**" # Test fixtures
+  - "**/*.pb.go" # Protobuf generated files
+  - "**/*.gen.go" # Other generated files
+  - "**/vendor/**" # Vendored dependencies
+  - "cmd/*/main.go" # Entry-point boilerplate (thin wrappers only)
+  #- "internal/generated/**"
+  #- "tools/**"             # Build/dev tooling not part of production binary
+
+# -----------------------------------------------------------------------------
+# fixes: — Path prefix corrections for uploaded reports
+# Needed when the CI working directory differs from the repo root.
+# -----------------------------------------------------------------------------
+# fixes:
+#   - "apps/myservice/::''   # Strip prefix so paths resolve correctly
+#   - "''::src/"             # Add a prefix
+
+# -----------------------------------------------------------------------------
+# flags: — Named subsets of coverage (e.g. per-service in a monorepo)
+# -----------------------------------------------------------------------------
+# flags:
+#   unit:
+#     joined: false           # false = independent; true = merge with other flags
+#     carryforward: true
+#   integration:
+#     joined: false
+#     carryforward: true
+#   service-a:
+#     paths:
+#       - services/service-a/
+#     carryforward: true
+
+# -----------------------------------------------------------------------------
+# comment: — Pull-request comment settings
+# -----------------------------------------------------------------------------
+comment:
+  layout: "reach,diff,flags,tree,betaprofiling"
+  # reach    — coverage reach / sunburst chart
+  # diff     — changed-files diff table
+  # flags    — per-flag breakdown
+  # tree     — file tree with per-file coverage
+  # betaprofiling — profiling data (if uploaded)
+
+  behavior: default
+  # default   — post new comment; update on subsequent pushes
+  # once      — post once; never update
+  # new       — always post a brand-new comment
+  # spammy    — post AND keep all historical comments
+
+  require_changes: false # Comment even when coverage hasn't changed
+  require_base: false # Comment even when base commit has no coverage
+  require_head: true # Don't comment if head commit has no coverage
+
+  # hide_project_coverage: false  # Show total project coverage in comment
+  # after_n_builds: 1             # Wait for N uploads before commenting
+
+# -----------------------------------------------------------------------------
+# github_checks: — GitHub Checks (Annotations) integration
+# -----------------------------------------------------------------------------
+github_checks:
+  annotations: true # Annotate changed lines with coverage info in PR
+
+
+# -----------------------------------------------------------------------------
+# profiling: — Critical path / runtime profiling (Codecov Impact Analysis)
+# Requires uploading a profiling data file in addition to coverage.
+# -----------------------------------------------------------------------------
+# profiling:
+#   critical_files_paths:
+#     - "internal/core/**"  # Mark these as business-critical
+
+# -----------------------------------------------------------------------------
+# component_management: — Logical groupings of paths for separate tracking
+# Useful in large Go monorepos to track coverage per domain/package group.
+# -----------------------------------------------------------------------------
+# component_management:
+#   default_rules:
+#     statuses:
+#       - type: project
+#         target: 80%
+#   individual_components:
+#     - component_id: "core"
+#       name: "Core Business Logic"
+#       paths:
+#         - "internal/core/**"
+#     - component_id: "api"
+#       name: "API Layer"
+#       paths:
+#         - "internal/api/**"
+#         - "pkg/handler/**"
+
+# -----------------------------------------------------------------------------
+# cli: — Codecov CLI / uploader settings (optional, usually set in CI env)
+# -----------------------------------------------------------------------------
+# cli:
+#   plugins:
+#     pycoverage:
+#       report_type: "json"  # Only relevant for Python; shown for reference
