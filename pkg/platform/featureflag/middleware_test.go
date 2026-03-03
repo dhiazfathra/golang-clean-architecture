@@ -21,68 +21,80 @@ func newTestServiceForMiddleware(t *testing.T) *Service {
 	return newServiceWithCache(repo, mc, 30*time.Second)
 }
 
-func TestRequireFlag_Enabled_PassesThrough(t *testing.T) {
-	svc := newTestServiceForMiddleware(t)
-	svc.local.Store("enabled_feature", true)
-
+func newEchoContext() (echo.Context, *httptest.ResponseRecorder) {
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
 	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	handlerCalled := false
-	handler := func(c echo.Context) error {
-		handlerCalled = true
-		return c.String(http.StatusOK, "ok")
-	}
-
-	mw := RequireFlag(svc, "enabled_feature")
-	err := mw(handler)(c)
-	require.NoError(t, err)
-	assert.True(t, handlerCalled)
-	assert.Equal(t, http.StatusOK, rec.Code)
+	return e.NewContext(req, rec), rec
 }
 
-func TestRequireFlag_Disabled_Returns404(t *testing.T) {
-	svc := newTestServiceForMiddleware(t)
-	svc.local.Store("disabled_feature", false)
+func runMiddleware(
+	t *testing.T,
+	svc *Service,
+	flag string,
+) (handlerCalled bool, status int) {
+	t.Helper()
 
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
+	c, rec := newEchoContext()
 
-	handlerCalled := false
 	handler := func(c echo.Context) error {
 		handlerCalled = true
 		return c.String(http.StatusOK, "ok")
 	}
 
-	mw := RequireFlag(svc, "disabled_feature")
+	mw := RequireFlag(svc, flag)
 	err := mw(handler)(c)
 	require.NoError(t, err)
-	assert.False(t, handlerCalled)
-	assert.Equal(t, http.StatusNotFound, rec.Code)
+
+	return handlerCalled, rec.Code
 }
 
-func TestRequireFlag_UnknownKey_Returns404(t *testing.T) {
-	svc := newTestServiceForMiddleware(t)
-
-	e := echo.New()
-	req := httptest.NewRequest(http.MethodGet, "/test", nil)
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-
-	handlerCalled := false
-	handler := func(c echo.Context) error {
-		handlerCalled = true
-		return c.String(http.StatusOK, "ok")
+func TestRequireFlag(t *testing.T) {
+	tests := []struct {
+		name           string
+		setup          func(svc *Service)
+		flag           string
+		expectCalled   bool
+		expectHTTPCode int
+	}{
+		{
+			name: "enabled passes through",
+			setup: func(svc *Service) {
+				svc.local.Store("enabled_feature", true)
+			},
+			flag:           "enabled_feature",
+			expectCalled:   true,
+			expectHTTPCode: http.StatusOK,
+		},
+		{
+			name: "disabled returns 404",
+			setup: func(svc *Service) {
+				svc.local.Store("disabled_feature", false)
+			},
+			flag:           "disabled_feature",
+			expectCalled:   false,
+			expectHTTPCode: http.StatusNotFound,
+		},
+		{
+			name: "unknown key returns 404",
+			setup: func(svc *Service) {
+				// Empty functional field used in test case to provide no-op setup for service.
+			},
+			flag:           "unknown_flag",
+			expectCalled:   false,
+			expectHTTPCode: http.StatusNotFound,
+		},
 	}
 
-	// Unknown key — not in any cache layer, and mock Valkey/DB won't find it
-	mw := RequireFlag(svc, "unknown_flag")
-	err := mw(handler)(c)
-	require.NoError(t, err)
-	assert.False(t, handlerCalled)
-	assert.Equal(t, http.StatusNotFound, rec.Code)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc := newTestServiceForMiddleware(t)
+			tt.setup(svc)
+
+			called, code := runMiddleware(t, svc, tt.flag)
+
+			assert.Equal(t, tt.expectCalled, called)
+			assert.Equal(t, tt.expectHTTPCode, code)
+		})
+	}
 }
