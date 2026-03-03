@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 
+	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
+	"github.com/valkey-io/valkey-go"
 
 	goapi "github.com/dhiazfathra/golang-clean-architecture/api"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/auth"
@@ -60,6 +62,7 @@ func main() {
 	runner.Register(rbacProjector)
 	runner.Register(userProjector)
 	runner.Register(orderProjector)
+	// TODO: Tech Debt - Support running background jobs concurrently with the HTTP API during unit/integration testing.
 	runner.Start(context.Background())
 
 	ffRepo := featureflag.NewRepository(db)
@@ -71,37 +74,66 @@ func main() {
 		panic("seeder: " + err.Error())
 	}
 
+	e := setupRouter(RouterDeps{
+		Cfg:          *cfg,
+		DB:           db,
+		VK:           vk,
+		SessionStore: sessionStore,
+		AuthSvc:      authSvc,
+		RBACSvc:      rbacSvc,
+		UserSvc:      userSvc,
+		OrderSvc:     orderSvc,
+		FFSvc:        ffSvc,
+	})
+	e.Logger.Fatal(e.Start(cfg.ListenAddr))
+}
+
+// RouterDeps holds all the dependencies required to set up the HTTP router.
+type RouterDeps struct {
+	Cfg          config.Config
+	DB           *sqlx.DB
+	VK           valkey.Client
+	SessionStore session.SessionStore
+	AuthSvc      *auth.Service
+	RBACSvc      *rbac.Service
+	UserSvc      *user.Service
+	OrderSvc     *order.Service
+	FFSvc        *featureflag.Service
+}
+
+func setupRouter(deps RouterDeps) *echo.Echo {
 	e := echo.New()
-	e.Use(observability.EchoMiddleware(cfg.ServiceName))
+	e.Use(observability.EchoMiddleware(deps.Cfg.ServiceName))
 	e.Use(observability.RequestMetrics())
+
 	public := e.Group("")
 	protected := e.Group("")
-	protected.Use(session.RequireSession(sessionStore))
+	protected.Use(session.RequireSession(deps.SessionStore))
 
 	adminGroup := protected.Group("/admin")
-	rbacHandler := rbac.NewHandler(rbacSvc, db)
-	userHandler := user.NewHandler(userSvc, db)
+	rbacHandler := rbac.NewHandler(deps.RBACSvc, deps.DB)
+	userHandler := user.NewHandler(deps.UserSvc, deps.DB)
 
-	auth.RegisterRoutes(public, protected, auth.NewHandler(authSvc))
-	rbac.RegisterRoutes(adminGroup, rbacHandler, rbacSvc)
-	user.RegisterRoutes(protected, userHandler, rbacSvc)
-	user.RegisterAdminRoutes(adminGroup, userHandler, rbacSvc)
-	order.RegisterRoutes(protected, order.NewHandler(orderSvc), rbacSvc)
+	auth.RegisterRoutes(public, protected, auth.NewHandler(deps.AuthSvc))
+	rbac.RegisterRoutes(adminGroup, rbacHandler, deps.RBACSvc)
+	user.RegisterRoutes(protected, userHandler, deps.RBACSvc)
+	user.RegisterAdminRoutes(adminGroup, userHandler, deps.RBACSvc)
+	order.RegisterRoutes(protected, order.NewHandler(deps.OrderSvc), deps.RBACSvc)
 
-	ffHandler := featureflag.NewHandler(ffSvc)
-	featureflag.RegisterAdminRoutes(adminGroup, ffHandler, rbacSvc)
+	ffHandler := featureflag.NewHandler(deps.FFSvc)
+	featureflag.RegisterAdminRoutes(adminGroup, ffHandler, deps.RBACSvc)
 
 	// Health probes — on root Echo instance, no auth middleware.
-	healthHandler := health.NewHandler(db, vk)
+	healthHandler := health.NewHandler(deps.DB, deps.VK)
 	e.GET("/health", healthHandler.Live)
 	e.GET("/health/ready", healthHandler.Ready)
 
 	// API docs — only in non-production environments.
-	if cfg.Env != "production" {
+	if deps.Cfg.Env != "production" {
 		docsHandler := docs.NewHandler(goapi.Files)
 		public.GET("/docs", docsHandler.ScalarUI)
 		public.GET("/openapi.yaml", docsHandler.OpenAPISpec)
 	}
 
-	e.Logger.Fatal(e.Start(cfg.ListenAddr))
+	return e
 }
