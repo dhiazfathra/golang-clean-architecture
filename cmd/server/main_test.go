@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -51,6 +52,60 @@ func minimalDeps(env string) RouterDeps {
 			Env:         env,
 			ServiceName: "test-svc",
 		},
+	}
+}
+
+// ---------------------------------------------------------------------------
+// run
+// ---------------------------------------------------------------------------
+
+const defaultTestPort = "8080"
+
+func defaultTestEnv(t *testing.T) {
+	t.Helper()
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
+	t.Setenv("VALKEY_URL", "localhost:6379")
+}
+
+func minimalWire() func(*config.Config) (RouterDeps, func(), error) {
+	return func(cfg *config.Config) (RouterDeps, func(), error) {
+		return minimalDeps("test"), func() {}, nil
+	}
+}
+
+func TestRun_ShutdownOnSignal(t *testing.T) {
+	defaultTestEnv(t)
+
+	quit := make(chan os.Signal, 1)
+	done := make(chan error, 1)
+	go func() { done <- run(quit, minimalWire()) }()
+
+	if err := waitForPort("127.0.0.1:"+defaultTestPort, 2*time.Second); err != nil {
+		t.Fatalf("server did not start: %v", err)
+	}
+
+	quit <- os.Interrupt
+
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("run() did not return after signal")
+	}
+}
+
+func TestRun_WireError(t *testing.T) {
+	defaultTestEnv(t)
+
+	wire := func(cfg *config.Config) (RouterDeps, func(), error) {
+		return RouterDeps{}, nil, errors.New("db unavailable")
+	}
+
+	err := run(make(chan os.Signal), wire)
+	if err == nil || !strings.Contains(err.Error(), "db unavailable") {
+		t.Errorf("expected wire error, got: %v", err)
 	}
 }
 

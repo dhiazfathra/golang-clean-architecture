@@ -30,11 +30,13 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
+type wireFn func(cfg *config.Config) (RouterDeps, func(), error)
+
 func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
-	if err := run(quit); err != nil {
+	if err := run(quit, defaultWire); err != nil {
 		_, _ = fmt.Fprintln(os.Stderr, "fatal:", err)
 		os.Exit(1)
 	}
@@ -44,29 +46,35 @@ func main() {
 // signal arrives on quit (or the channel is closed). Accepting the signal
 // channel as a parameter makes the entire shutdown path testable without
 // spawning a real OS process.
-func run(quit <-chan os.Signal) error {
+func run(quit <-chan os.Signal, wire wireFn) error {
 	cfg := config.MustLoad()
+	deps, cleanup, err := wire(cfg)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
 
+	e := setupRouter(deps)
+	return startAndAwaitShutdown(e, cfg.ListenAddr, quit)
+}
+
+// defaultWire is the real implementation used in production.
+func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 	observability.Init(observability.InitConfig{
 		ServiceName:     cfg.ServiceName,
 		Env:             cfg.Env,
 		StatsdAddr:      cfg.StatsdAddr,
 		StatsdNamespace: cfg.StatsdNamespace,
 	})
-	defer observability.Stop()
 
 	db := database.MustConnect(cfg.DatabaseURL, database.PoolConfig{
 		MaxOpenConns: cfg.DBMaxOpenConns,
 		MaxIdleConns: cfg.DBMaxIdleConns,
 		ServiceName:  cfg.ServiceName + "-db",
 	})
-	defer db.Close()
 
 	vk := session.MustConnectValkey(cfg.ValkeyURL)
-	defer vk.Close()
-
 	es := eventstore.NewPgStore(db)
-
 	sessionStore := session.NewValkeyStore(vk)
 	hasher := auth.NewBcryptHasher()
 
@@ -85,7 +93,6 @@ func run(quit <-chan os.Signal) error {
 	orderSvc := order.NewService(es, orderReadRepo, &orderUserProvider{userSvc})
 
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 
 	runner := eventstore.NewProjectionRunner(db, es)
 	runner.Register(rbacProjector)
@@ -99,10 +106,21 @@ func run(quit <-chan os.Signal) error {
 
 	if err := seeder.Seed(ctx, rbacSvc, &seederUserAdapter{userSvc},
 		cfg.SeedSuperAdminPassword, cfg.SeedDefaultModulePassword); err != nil {
-		return fmt.Errorf("seeder: %w", err)
+		cancel()
+		db.Close()
+		vk.Close()
+		observability.Stop()
+		return RouterDeps{}, nil, fmt.Errorf("seeder: %w", err)
 	}
 
-	e := setupRouter(RouterDeps{
+	cleanup := func() {
+		cancel()
+		db.Close()
+		vk.Close()
+		observability.Stop()
+	}
+
+	return RouterDeps{
 		Cfg:          *cfg,
 		DB:           db,
 		VK:           vk,
@@ -112,9 +130,7 @@ func run(quit <-chan os.Signal) error {
 		UserSvc:      userSvc,
 		OrderSvc:     orderSvc,
 		FFSvc:        ffSvc,
-	})
-
-	return startAndAwaitShutdown(e, cfg.ListenAddr, quit)
+	}, cleanup, nil
 }
 
 // startAndAwaitShutdown starts e in a goroutine, waits for a quit signal or a
