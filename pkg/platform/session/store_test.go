@@ -38,6 +38,7 @@ func (m *mockStore) Refresh(ctx context.Context, sessionID string, ttl time.Dura
 
 func valkeyURL(t *testing.T) string {
 	t.Helper()
+	t.Setenv("VALKEY_URL", "localhost:6379")
 	url := os.Getenv("VALKEY_URL")
 	if url == "" {
 		t.Skip("VALKEY_URL not set — skipping Valkey integration tests")
