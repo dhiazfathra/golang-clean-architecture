@@ -50,12 +50,12 @@ var fixedTime = time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
 // Tests
 // ---------------------------------------------------------------------------
 
-func TestRun_MissingModuleFlag_ReturnsOne(t *testing.T) {
+func TestServe_MissingModuleFlag_ReturnsOne(t *testing.T) {
 	var stderr bytes.Buffer
 	calls := [][]string{}
 	deps := testDeps(&stderr, nil, &calls, fixedTime)
 
-	code := run([]string{}, deps)
+	code := serve([]string{}, deps)
 
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
@@ -68,22 +68,22 @@ func TestRun_MissingModuleFlag_ReturnsOne(t *testing.T) {
 	}
 }
 
-func TestRun_InvalidFlag_ReturnsOne(t *testing.T) {
+func TestServe_InvalidFlag_ReturnsOne(t *testing.T) {
 	var stderr bytes.Buffer
 	deps := testDeps(&stderr, nil, nil, fixedTime)
 
-	code := run([]string{"-unknown-flag"}, deps)
+	code := serve([]string{"-unknown-flag"}, deps)
 
 	if code != 1 {
 		t.Fatalf("expected exit code 1 for unknown flag, got %d", code)
 	}
 }
 
-func TestRun_MkdirAllFails_OutDir_ReturnsOne(t *testing.T) {
+func TestServe_MkdirAllFails_OutDir_ReturnsOne(t *testing.T) {
 	var stderr bytes.Buffer
 	deps := testDeps(&stderr, errors.New("permission denied"), nil, fixedTime)
 
-	code := run([]string{"-module=product"}, deps)
+	code := serve([]string{"-module=product"}, deps)
 
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
@@ -93,7 +93,7 @@ func TestRun_MkdirAllFails_OutDir_ReturnsOne(t *testing.T) {
 	}
 }
 
-func TestRun_MkdirAllFails_ApiPathsDir_ReturnsOne(t *testing.T) {
+func TestServe_MkdirAllFails_ApiPathsDir_ReturnsOne(t *testing.T) {
 	var stderr bytes.Buffer
 	callCount := 0
 	calls := [][]string{}
@@ -119,7 +119,7 @@ func TestRun_MkdirAllFails_ApiPathsDir_ReturnsOne(t *testing.T) {
 		},
 	}
 
-	code := run([]string{"-module=product"}, deps)
+	code := serve([]string{"-module=product"}, deps)
 
 	if code != 1 {
 		t.Fatalf("expected exit code 1, got %d", code)
@@ -129,12 +129,12 @@ func TestRun_MkdirAllFails_ApiPathsDir_ReturnsOne(t *testing.T) {
 	}
 }
 
-func TestRun_Success_AllFilesRendered(t *testing.T) {
+func TestServe_Success_AllFilesRendered(t *testing.T) {
 	var stderr bytes.Buffer
 	calls := [][]string{}
 	deps := testDeps(&stderr, nil, &calls, fixedTime)
 
-	code := run([]string{"-module=product", "-fields=name:string,price:float64"}, deps)
+	code := serve([]string{"-module=product", "-fields=name:string,price:float64"}, deps)
 
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d (stderr: %s)", code, stderr.String())
@@ -147,7 +147,7 @@ func TestRun_Success_AllFilesRendered(t *testing.T) {
 	}
 }
 
-func TestRun_Success_SpecFieldsCorrect(t *testing.T) {
+func TestServe_Success_SpecFieldsCorrect(t *testing.T) {
 	var stderr bytes.Buffer
 	var capturedSpec ModuleSpec
 	deps := Dependencies{
@@ -165,7 +165,7 @@ func TestRun_Success_SpecFieldsCorrect(t *testing.T) {
 		},
 	}
 
-	code := run([]string{"-module=order", "-fields=total:float64"}, deps)
+	code := serve([]string{"-module=order", "-fields=total:float64"}, deps)
 
 	if code != 0 {
 		t.Fatalf("unexpected exit code %d", code)
@@ -190,12 +190,12 @@ func TestRun_Success_SpecFieldsCorrect(t *testing.T) {
 	}
 }
 
-func TestRun_Success_OutputPaths(t *testing.T) {
+func TestServe_Success_OutputPaths(t *testing.T) {
 	var stderr bytes.Buffer
 	calls := [][]string{}
 	deps := testDeps(&stderr, nil, &calls, fixedTime)
 
-	code := run([]string{"-module=widget"}, deps)
+	code := serve([]string{"-module=widget"}, deps)
 
 	if code != 0 {
 		t.Fatalf("expected exit code 0, got %d", code)
@@ -233,7 +233,7 @@ func TestRun_Success_OutputPaths(t *testing.T) {
 	}
 }
 
-func TestRun_NoFields_SucceedsWithEmptyFields(t *testing.T) {
+func TestServe_NoFields_SucceedsWithEmptyFields(t *testing.T) {
 	var stderr bytes.Buffer
 	var capturedSpec ModuleSpec
 	deps := Dependencies{
@@ -251,7 +251,7 @@ func TestRun_NoFields_SucceedsWithEmptyFields(t *testing.T) {
 		},
 	}
 
-	code := run([]string{"-module=thing"}, deps)
+	code := serve([]string{"-module=thing"}, deps)
 
 	if code != 0 {
 		t.Fatalf("unexpected exit code %d", code)
