@@ -56,7 +56,7 @@ func minimalDeps(env string) RouterDeps {
 }
 
 // ---------------------------------------------------------------------------
-// run
+// serve
 // ---------------------------------------------------------------------------
 
 const defaultTestPort = "8080"
@@ -73,12 +73,12 @@ func minimalWire() func(*config.Config) (RouterDeps, func(), error) {
 	}
 }
 
-func TestRun_ShutdownOnSignal(t *testing.T) {
+func TestServe_ShutdownOnSignal(t *testing.T) {
 	defaultTestEnv(t)
 
 	quit := make(chan os.Signal, 1)
 	done := make(chan error, 1)
-	go func() { done <- run(quit, minimalWire()) }()
+	go func() { done <- serve(quit, minimalWire()) }()
 
 	if err := waitForPort("127.0.0.1:"+defaultTestPort, 2*time.Second); err != nil {
 		t.Fatalf("server did not start: %v", err)
@@ -92,18 +92,18 @@ func TestRun_ShutdownOnSignal(t *testing.T) {
 			t.Errorf("unexpected error: %v", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("run() did not return after signal")
+		t.Fatal("serve() did not return after signal")
 	}
 }
 
-func TestRun_WireError(t *testing.T) {
+func TestServe_WireError(t *testing.T) {
 	defaultTestEnv(t)
 
 	wire := func(cfg *config.Config) (RouterDeps, func(), error) {
 		return RouterDeps{}, nil, errors.New("db unavailable")
 	}
 
-	err := run(make(chan os.Signal), wire)
+	err := serve(make(chan os.Signal), wire)
 	if err == nil || !strings.Contains(err.Error(), "db unavailable") {
 		t.Errorf("expected wire error, got: %v", err)
 	}
