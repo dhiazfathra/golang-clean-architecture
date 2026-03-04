@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"testing"
 	"time"
 
@@ -32,6 +33,42 @@ func TestMustLoad_Defaults(t *testing.T) {
 
 	assert.Equal(t, ":8080", cfg.ListenAddr)
 	// assert.Equal(t, "development", cfg.Env) // Flaky on GitHub Actions pipeline
+	assert.Equal(t, "golang-clean-arch", cfg.ServiceName)
+	assert.Equal(t, 25, cfg.DBMaxOpenConns)
+	assert.Equal(t, 5, cfg.DBMaxIdleConns)
+	assert.Equal(t, 24*time.Hour, cfg.SessionTTL)
+	assert.Equal(t, "localhost:8125", cfg.StatsdAddr)
+	assert.Equal(t, "golang_clean_arch.", cfg.StatsdNamespace)
+	assert.Equal(t, 30*time.Second, cfg.FeatureFlagRefreshTTL)
+}
+
+func TestMustLoad_YAMLConfig(t *testing.T) {
+	const yamlContent = `
+listen_addr: ":8080"
+env: "production"
+service_name: "golang-clean-arch"
+db_max_open_conns: 25
+db_max_idle_conns: 5
+session_ttl: 24h
+statsd_addr: "localhost:8125"
+statsd_namespace: "golang_clean_arch."
+feature_flag_refresh_ttl: 30s
+`
+
+	const configFileName = "config.yaml"
+	// Write the file into the test's working directory
+	err := os.WriteFile(configFileName, []byte(yamlContent), 0600)
+	require.NoError(t, err)
+	t.Cleanup(func() { os.Remove(configFileName) })
+
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
+	t.Setenv("VALKEY_URL", "localhost:6379")
+	t.Setenv("CONFIG_FILE", configFileName)
+
+	cfg := MustLoad()
+
+	assert.Equal(t, ":8080", cfg.ListenAddr)
+	assert.Equal(t, "production", cfg.Env)
 	assert.Equal(t, "golang-clean-arch", cfg.ServiceName)
 	assert.Equal(t, 25, cfg.DBMaxOpenConns)
 	assert.Equal(t, 5, cfg.DBMaxIdleConns)
