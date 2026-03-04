@@ -58,3 +58,8 @@ jobs:
         id: semrel
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update sonar project version
+        if: steps.semrel.outputs.version != ''
+        run: |
+          sed -i "s/^sonar.projectVersion=.*/sonar.projectVersion=${{ steps.semrel.outputs.version }}/" sonar-project.properties

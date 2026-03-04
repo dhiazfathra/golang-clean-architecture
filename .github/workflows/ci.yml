@@ -62,7 +62,7 @@ jobs:
         with:
           go-version: ${{ env.GO_VERSION }}
       - name: Run tests with coverage
-        run: go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+        run: make cover
         env:
           DATABASE_URL: postgres://test:test@localhost:5432/test?sslmode=disable
           VALKEY_URL: localhost:6379
@@ -71,20 +71,15 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: coverage
-          path: coverage.txt
+          path: coverage.out
           retention-days: 5
       - name: Check coverage threshold
-        run: |
-          COVERAGE=$(go tool cover -func=coverage.txt | grep total | awk '{print $3}' | tr -d '%')
-          echo "Total coverage: ${COVERAGE}%"
-          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
-            echo "::error::Coverage ${COVERAGE}% is below 80% threshold"
-            exit 1
-          fi
+        run: make cover-check
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.out
           slug: dhiazfathra/golang-clean-architecture
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
