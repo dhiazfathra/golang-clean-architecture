@@ -37,7 +37,7 @@ type RoleUnassigned struct {
 	RoleID string `json:"role_id"`
 }
 
-func applyUser(s *UserState, e eventstore.Event) {
+func ApplyUser(s *UserState, e eventstore.Event) {
 	switch ev := e.(type) {
 	case *UserCreated:
 		s.ID = ev.AggregateID()
@@ -62,5 +62,5 @@ func applyUser(s *UserState, e eventstore.Event) {
 }
 
 func NewUserAggregate(id string) *eventstore.Aggregate[UserState] {
-	return eventstore.New[UserState](id, applyUser)
+	return eventstore.New[UserState](id, ApplyUser)
 }
