@@ -61,6 +61,7 @@ feature_flag_refresh_ttl: 30s
 	require.NoError(t, err)
 	t.Cleanup(func() { os.Remove(configFileName) })
 
+	t.Setenv("ENV", "") // prevent ambient ENV from overriding YAML
 	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
 	t.Setenv("VALKEY_URL", "localhost:6379")
 	t.Setenv("CONFIG_FILE", configFileName)
