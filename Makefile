@@ -159,6 +159,16 @@ cover-clean:
 	@rm -f $(COVERAGE_OUT) $(COVERAGE_HTML)
 	@echo "==> Coverage artifacts removed"
 
+# -----------------------------------------------------------------------------
+.PHONY: test-report
+## test-report: generate JUnit XML test report for SonarQube
+test-report:
+    go test -v $(RACE) \
+        -timeout $(GOTEST_TIMEOUT) \
+        -covermode=atomic \
+        -coverprofile=$(COVERAGE_OUT) \
+        ./... 2>&1 | go-junit-report -set-exit-code > test-report.xml
+
 # =============================================================================
 # Internal helpers
 # =============================================================================
