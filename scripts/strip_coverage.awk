@@ -12,12 +12,13 @@
 #   **/vendor/**          → go list excludes vendor; not in coverage.out
 #   cmd/*/main.go         → /cmd/[name]/main.go
 
-/^mode:/              { print; next }
-/\/mocks\//           { next }
-/\/testdata\//        { next }
-/\.pb\.go:/           { next }
-/\.gen\.go:/          { next }
-/\/vendor\//          { next }
-/\/mock_[^\/]*\.go:/   { next }
+/^mode:/                   { print; next }
+/\/mocks\//                { next }
+/\/testdata\//             { next }
+/\.pb\.go:/                { next }
+/\.gen\.go:/               { next }
+/\/vendor\//               { next }
+/\/mock_[^\/]*\.go:/       { next }
+/\/[^\/]*_mock\.go:/       { next }
 /\/cmd\/[^\/]+\/main\.go:/ { next }
-                      { print }
+                           { print }

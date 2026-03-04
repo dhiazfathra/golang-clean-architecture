@@ -113,6 +113,7 @@ parsers:
 ignore:
   - "**/*_test.go" # Test files themselves (they aren't production code)
   - "**/mock_*.go" # Generated mocks
+  - "**/*_mock.go" # Mocks
   - "**/mocks/**" # Mock packages
   - "**/testdata/**" # Test fixtures
   - "**/*.pb.go" # Protobuf generated files
