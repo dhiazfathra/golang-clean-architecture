@@ -14,6 +14,7 @@ const unexpectedErrorFmt = "unexpected error: %v"
 const expectedError = "expected an error"
 
 func TestOrderUserProvider_GetByID_Found(t *testing.T) {
+	t.Parallel()
 	svc := &user.MockUserService{GetByIDResult: &user.UserReadModel{}}
 	oup := &orderUserProvider{svc: svc}
 
@@ -27,6 +28,7 @@ func TestOrderUserProvider_GetByID_Found(t *testing.T) {
 }
 
 func TestOrderUserProvider_GetByID_NotFound(t *testing.T) {
+	t.Parallel()
 	svc := &user.MockUserService{GetByIDResult: nil}
 	oup := &orderUserProvider{svc: svc}
 
@@ -40,6 +42,7 @@ func TestOrderUserProvider_GetByID_NotFound(t *testing.T) {
 }
 
 func TestOrderUserProvider_GetByID_Error(t *testing.T) {
+	t.Parallel()
 	svc := &user.MockUserService{GetByIDErr: errors.New("db error")}
 	oup := &orderUserProvider{svc: svc}
 
@@ -52,6 +55,7 @@ func TestOrderUserProvider_GetByID_Error(t *testing.T) {
 // --- authUserAdapter ---
 
 func TestAuthUserAdapter_GetByEmail_Success(t *testing.T) {
+	t.Parallel()
 	want := &auth.UserRecord{Email: "a@b.com"}
 	svc := &user.MockUserService{GetByEmailAuthResult: want}
 	aua := &authUserAdapter{svc: svc}
@@ -66,6 +70,7 @@ func TestAuthUserAdapter_GetByEmail_Success(t *testing.T) {
 }
 
 func TestAuthUserAdapter_GetByEmail_Error(t *testing.T) {
+	t.Parallel()
 	svc := &user.MockUserService{GetByEmailAuthErr: errors.New("not found")}
 	aua := &authUserAdapter{svc: svc}
 
@@ -78,6 +83,7 @@ func TestAuthUserAdapter_GetByEmail_Error(t *testing.T) {
 // --- seederUserAdapter ---
 
 func TestSeederUserAdapter_GetByEmail_Success(t *testing.T) {
+	t.Parallel()
 	want := &seeder.UserRecord{Email: "seed@test.com"}
 	svc := &user.MockUserService{GetByEmailSeederResult: want}
 	sua := &seederUserAdapter{svc: svc}
@@ -92,6 +98,7 @@ func TestSeederUserAdapter_GetByEmail_Success(t *testing.T) {
 }
 
 func TestSeederUserAdapter_CreateUser_Success(t *testing.T) {
+	t.Parallel()
 	svc := &user.MockUserService{CreateUserResult: "new-id"}
 	sua := &seederUserAdapter{svc: svc}
 
@@ -105,6 +112,7 @@ func TestSeederUserAdapter_CreateUser_Success(t *testing.T) {
 }
 
 func TestSeederUserAdapter_AssignRole_Success(t *testing.T) {
+	t.Parallel()
 	svc := &user.MockUserService{}
 	sua := &seederUserAdapter{svc: svc}
 
@@ -114,6 +122,7 @@ func TestSeederUserAdapter_AssignRole_Success(t *testing.T) {
 }
 
 func TestSeederUserAdapter_AssignRole_Error(t *testing.T) {
+	t.Parallel()
 	svc := &user.MockUserService{AssignRoleErr: errors.New("forbidden")}
 	sua := &seederUserAdapter{svc: svc}
 

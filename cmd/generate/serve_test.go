@@ -51,6 +51,7 @@ var fixedTime = time.Date(2024, 1, 15, 12, 0, 0, 0, time.UTC)
 // ---------------------------------------------------------------------------
 
 func TestServe_MissingModuleFlag_ReturnsOne(t *testing.T) {
+	t.Parallel()
 	var stderr bytes.Buffer
 	calls := [][]string{}
 	deps := testDeps(&stderr, nil, &calls, fixedTime)
@@ -69,6 +70,7 @@ func TestServe_MissingModuleFlag_ReturnsOne(t *testing.T) {
 }
 
 func TestServe_InvalidFlag_ReturnsOne(t *testing.T) {
+	t.Parallel()
 	var stderr bytes.Buffer
 	deps := testDeps(&stderr, nil, nil, fixedTime)
 
@@ -80,6 +82,7 @@ func TestServe_InvalidFlag_ReturnsOne(t *testing.T) {
 }
 
 func TestServe_MkdirAllFails_OutDir_ReturnsOne(t *testing.T) {
+	t.Parallel()
 	var stderr bytes.Buffer
 	deps := testDeps(&stderr, errors.New("permission denied"), nil, fixedTime)
 
@@ -94,6 +97,7 @@ func TestServe_MkdirAllFails_OutDir_ReturnsOne(t *testing.T) {
 }
 
 func TestServe_MkdirAllFails_ApiPathsDir_ReturnsOne(t *testing.T) {
+	t.Parallel()
 	var stderr bytes.Buffer
 	callCount := 0
 	calls := [][]string{}
@@ -130,6 +134,7 @@ func TestServe_MkdirAllFails_ApiPathsDir_ReturnsOne(t *testing.T) {
 }
 
 func TestServe_Success_AllFilesRendered(t *testing.T) {
+	t.Parallel()
 	var stderr bytes.Buffer
 	calls := [][]string{}
 	deps := testDeps(&stderr, nil, &calls, fixedTime)
@@ -148,6 +153,7 @@ func TestServe_Success_AllFilesRendered(t *testing.T) {
 }
 
 func TestServe_Success_SpecFieldsCorrect(t *testing.T) {
+	t.Parallel()
 	var stderr bytes.Buffer
 	var capturedSpec ModuleSpec
 	deps := Dependencies{
@@ -191,6 +197,7 @@ func TestServe_Success_SpecFieldsCorrect(t *testing.T) {
 }
 
 func TestServe_Success_OutputPaths(t *testing.T) {
+	t.Parallel()
 	var stderr bytes.Buffer
 	calls := [][]string{}
 	deps := testDeps(&stderr, nil, &calls, fixedTime)
@@ -234,6 +241,7 @@ func TestServe_Success_OutputPaths(t *testing.T) {
 }
 
 func TestServe_NoFields_SucceedsWithEmptyFields(t *testing.T) {
+	t.Parallel()
 	var stderr bytes.Buffer
 	var capturedSpec ModuleSpec
 	deps := Dependencies{
@@ -262,6 +270,7 @@ func TestServe_NoFields_SucceedsWithEmptyFields(t *testing.T) {
 }
 
 func TestDefaultDeps_NotNil(t *testing.T) {
+	t.Parallel()
 	deps := defaultDeps()
 	if deps.Stderr == nil {
 		t.Error("Stderr should not be nil")
@@ -291,6 +300,7 @@ func TestDefaultDeps_NotNil(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestGoType(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want string
@@ -316,6 +326,7 @@ func TestGoType(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSqlType(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want string
@@ -341,6 +352,7 @@ func TestSqlType(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestSqlDefault(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		in   string
 		want string
@@ -366,6 +378,7 @@ func TestSqlDefault(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestParseFields_Empty(t *testing.T) {
+	t.Parallel()
 	fields := parseFields("")
 	if fields != nil {
 		t.Errorf("expected nil, got %v", fields)
@@ -373,6 +386,7 @@ func TestParseFields_Empty(t *testing.T) {
 }
 
 func TestParseFields_Valid(t *testing.T) {
+	t.Parallel()
 	fields := parseFields("name:string,price:float64,active:bool")
 	if len(fields) != 3 {
 		t.Fatalf("expected 3 fields, got %d", len(fields))
@@ -390,6 +404,7 @@ func TestParseFields_Valid(t *testing.T) {
 }
 
 func TestParseFields_NameTitle(t *testing.T) {
+	t.Parallel()
 	fields := parseFields("price:float64")
 	if fields[0].NameTitle != "Price" {
 		t.Errorf("NameTitle = %q, want %q", fields[0].NameTitle, "Price")
@@ -397,6 +412,7 @@ func TestParseFields_NameTitle(t *testing.T) {
 }
 
 func TestParseFields_JSONAndDBTags(t *testing.T) {
+	t.Parallel()
 	fields := parseFields("email:string")
 	if fields[0].JSONTag != "email" || fields[0].DBTag != "email" {
 		t.Errorf("unexpected tags: json=%q db=%q", fields[0].JSONTag, fields[0].DBTag)
@@ -404,6 +420,7 @@ func TestParseFields_JSONAndDBTags(t *testing.T) {
 }
 
 func TestParseFields_SkipMalformed(t *testing.T) {
+	t.Parallel()
 	// "badpair" has no colon — should be skipped
 	fields := parseFields("badpair,name:string")
 	if len(fields) != 1 {
@@ -415,6 +432,7 @@ func TestParseFields_SkipMalformed(t *testing.T) {
 }
 
 func TestParseFields_AllTypes(t *testing.T) {
+	t.Parallel()
 	raw := "a:string,b:int,c:int64,d:float64,e:bool,f:time,g:uuid,h:unknown"
 	fields := parseFields(raw)
 	if len(fields) != 8 {
@@ -423,6 +441,7 @@ func TestParseFields_AllTypes(t *testing.T) {
 }
 
 func TestParseFields_Whitespace(t *testing.T) {
+	t.Parallel()
 	fields := parseFields("  name : string  , price : float64  ")
 	// After TrimSpace on the pair the colon split still works;
 	// leading/trailing spaces on name/type are NOT trimmed (by design) — just verify no panic.
@@ -436,6 +455,7 @@ func TestParseFields_Whitespace(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestRenderTo_PathEscapesWorkingDir(t *testing.T) {
+	t.Parallel()
 	defer func() {
 		r := recover()
 		if r == nil {
@@ -505,6 +525,7 @@ func TestRenderTo_HappyPath(t *testing.T) {
 
 // TestRenderTo_WithAddFunc verifies the "add" FuncMap entry works in templates.
 func TestRenderTo_WithAddFunc(t *testing.T) {
+	t.Parallel()
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatal(err)

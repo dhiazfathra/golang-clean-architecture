@@ -35,6 +35,7 @@ func echoCtx(method, target, body string) (echo.Context, *httptest.ResponseRecor
 // --- Login ---
 
 func TestAuthHandler_Login_OK(t *testing.T) {
+	t.Parallel()
 	users := &mockUserProvider{
 		GetByEmailFn: func(_ context.Context, email string) (*UserRecord, error) {
 			return &UserRecord{ID: "u1", Email: email, PassHash: "h", Active: true}, nil
@@ -64,6 +65,7 @@ func TestAuthHandler_Login_OK(t *testing.T) {
 }
 
 func TestAuthHandler_Login_BadBody(t *testing.T) {
+	t.Parallel()
 	h := newTestHandler(nil, nil, nil)
 	c, rec := echoCtx(http.MethodPost, "/auth/login", "{bad")
 
@@ -72,6 +74,7 @@ func TestAuthHandler_Login_BadBody(t *testing.T) {
 }
 
 func TestAuthHandler_Login_ValidationError(t *testing.T) {
+	t.Parallel()
 	h := newTestHandler(nil, nil, nil)
 	// Missing password
 	c, rec := echoCtx(http.MethodPost, "/auth/login", `{"email":"a@b.com"}`)
@@ -81,6 +84,7 @@ func TestAuthHandler_Login_ValidationError(t *testing.T) {
 }
 
 func TestAuthHandler_Login_Unauthorized(t *testing.T) {
+	t.Parallel()
 	users := &mockUserProvider{
 		GetByEmailFn: func(_ context.Context, _ string) (*UserRecord, error) {
 			return nil, nil
