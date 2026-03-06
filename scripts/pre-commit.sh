@@ -86,21 +86,21 @@ if [[ -n "$CHANGED_PKGS" ]]; then
   run_hook "test_changed" bash -c "echo '$CHANGED_PKGS' | xargs go test -short -count=1"
 fi
 
-# ── Hook: sql_validate ──
 if [[ -n "$CHANGED_SQL" ]]; then
-  run_hook "sql_validate" bash -c "
-    for f in $CHANGED_SQL; do
-      base=\$(basename \"\$f\")
-      # Check naming convention: YYYYMMDDHHMMSS_name.up.sql or .down.sql
-      if ! echo \"\$base\" | grep -qE '^[0-9]{14}_[a-z_]+\.(up|down)\.sql$'; then
-        echo \"Invalid migration name: \$base\"; echo 'Expected: YYYYMMDDHHMMSS_name.up.sql'; exit 1
+  run_hook "sql_validate" bash -c '
+    for f in $0; do
+      base=$(basename "$f")
+      if ! echo "$base" | grep -qE '"'"'^[0-9]{14}_[a-z_]+\.(up|down)\.sql$'"'"'; then
+        echo "Invalid migration name: $base"
+        echo "Expected: YYYYMMDDHHMMSS_name.up.sql"
+        exit 1
       fi
-      # Basic syntax check: ensure file is valid UTF-8 and non-empty
-      if [[ ! -s \"\$f\" ]]; then
-        echo \"Empty migration file: \$f\"; exit 1
+      if [[ ! -s "$f" ]]; then
+        echo "Empty migration file: $f"
+        exit 1
       fi
     done
-  "
+  ' $CHANGED_SQL
 fi
 
 # ── Hook: secret_scan ──
