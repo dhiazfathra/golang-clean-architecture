@@ -37,7 +37,7 @@ func newTestHandler(t *testing.T) (*Handler, sqlmock.Sqlmock) {
 	db, mock := testutil.NewMockDB(t)
 	repo := NewRepository(db)
 	mc := newMockCache()
-	svc := newServiceWithCache(repo, mc, 30*time.Second)
+	svc := newServiceWithStore(repo, mc, 30*time.Second)
 	return NewHandler(svc), mock
 }
 

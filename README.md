@@ -127,6 +127,16 @@ ProjectionRunner (poll loop, 200ms)
   → Response: Handler → rbac.FilterResponse → JSON
 ```
 
+### Shared Cache Layer (`pkg/platform/kvstore`)
+
+The `kvstore` package provides a reusable 3-tier caching layer used by both feature flags and environment variables:
+
+- **`kvstore.Cache`** — interface abstracting Valkey operations (Get/Set/Del/SetMulti)
+- **`kvstore.NewValkeyCache`** — production implementation backed by `valkey.Client`
+- **`kvstore.Store`** — generic 3-tier store with background refresh, L1 (sync.Map) → L2 (Valkey) → L3 (Postgres via `Loader` function)
+
+Future config/settings modules should compose `kvstore.Store` to get the same caching behaviour without duplication.
+
 ### Session Auth
 
 Every protected route is guarded by `session.RequireSession`, which reads a signed session cookie, validates it against Valkey, and stores `userID` in the Echo context. Handlers retrieve it via `session.UserID(c)`.
@@ -225,7 +235,7 @@ All API endpoints are prefixed with `/api/v1`. Health probes remain at root for 
 | PATCH | `/api/v1/admin/feature-flags/:key` | `featureflag:manage` |
 | DELETE | `/api/v1/admin/feature-flags/:key` | `featureflag:manage` |
 
-Feature flags use a hybrid 3-tier cache: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**. Use `featureflag.RequireFlag(svc, "key")` middleware to gate any route behind a flag.
+Feature flags use the shared `kvstore.Store` 3-tier cache: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**. Use `featureflag.RequireFlag(svc, "key")` middleware to gate any route behind a flag.
 
 ### Environment Variables
 
@@ -237,7 +247,7 @@ Feature flags use a hybrid 3-tier cache: **sync.Map (in-process) → Valkey (sha
 | PUT | `/api/v1/envs/:platform/:key` | `envvar:manage` |
 | DELETE | `/api/v1/envs/:platform/:key` | `envvar:manage` |
 
-Dynamic environment variables scoped by platform (`mobile`, `web`, `be`, etc.). Uses the same hybrid 3-tier cache as feature flags: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**.
+Dynamic environment variables scoped by platform (`mobile`, `web`, `be`, etc.). Uses the same shared `kvstore.Store` 3-tier cache as feature flags: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**.
 
 ### Audit
 

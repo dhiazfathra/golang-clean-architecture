@@ -1,4 +1,4 @@
-package envvar
+package kvstore
 
 import (
 	"context"
@@ -7,7 +7,8 @@ import (
 	"github.com/valkey-io/valkey-go"
 )
 
-type cache interface {
+// Cache abstracts the Valkey cache layer for unit-testability.
+type Cache interface {
 	Get(ctx context.Context, key string) (string, error)
 	Set(ctx context.Context, key, value string, ttl time.Duration) error
 	Del(ctx context.Context, key string) error
@@ -18,7 +19,8 @@ type valkeyCache struct {
 	client valkey.Client
 }
 
-func newValkeyCache(client valkey.Client) *valkeyCache {
+// NewValkeyCache returns a Cache backed by the given valkey.Client.
+func NewValkeyCache(client valkey.Client) Cache {
 	return &valkeyCache{client: client}
 }
 

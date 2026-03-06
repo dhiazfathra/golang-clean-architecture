@@ -19,7 +19,7 @@ func newTestService(t *testing.T) (*Service, sqlmock.Sqlmock) {
 	db, mock := testutil.NewMockDB(t)
 	repo := NewRepository(db)
 	mc := newMockCache()
-	svc := newServiceWithCache(repo, mc, 30*time.Second)
+	svc := newServiceWithStore(repo, mc, 30*time.Second)
 	return svc, mock
 }
 
@@ -35,7 +35,7 @@ func TestGetValue_UnknownKey_ReturnsEmpty(t *testing.T) {
 func TestGetValue_L1_InProcessHit(t *testing.T) {
 	t.Parallel()
 	svc, _ := newTestService(t)
-	svc.local.Store("mobile:api_url", "https://api.example.com")
+	svc.store.Set(context.Background(), "mobile:api_url", "https://api.example.com")
 
 	assert.Equal(t, "https://api.example.com", svc.GetValue("mobile", "api_url"))
 }
@@ -46,12 +46,12 @@ func TestGetValue_L2_CacheHit(t *testing.T) {
 	repo := NewRepository(db)
 	mc := newMockCache()
 	mc.data["env:mobile:api_url"] = "https://cached.example.com"
-	svc := newServiceWithCache(repo, mc, 30*time.Second)
+	svc := newServiceWithStore(repo, mc, 30*time.Second)
 
 	assert.Equal(t, "https://cached.example.com", svc.GetValue("mobile", "api_url"))
-	v, ok := svc.local.Load("mobile:api_url")
+	v, ok := svc.store.Local("mobile:api_url")
 	assert.True(t, ok)
-	assert.Equal(t, "https://cached.example.com", v.(string))
+	assert.Equal(t, "https://cached.example.com", v)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -60,16 +60,16 @@ func TestGetValue_L3_PostgresFallback(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	repo := NewRepository(db)
 	mc := newMockCache()
-	svc := newServiceWithCache(repo, mc, 30*time.Second)
+	svc := newServiceWithStore(repo, mc, 30*time.Second)
 
 	cols := envVarColumns()
 	rows := sqlmock.NewRows(cols).AddRow(envVarRow(1, "mobile", "api_url", "https://db.example.com")...)
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(rows)
 
 	assert.Equal(t, "https://db.example.com", svc.GetValue("mobile", "api_url"))
-	v, ok := svc.local.Load("mobile:api_url")
+	v, ok := svc.store.Local("mobile:api_url")
 	assert.True(t, ok)
-	assert.Equal(t, "https://db.example.com", v.(string))
+	assert.Equal(t, "https://db.example.com", v)
 	val, err := mc.Get(context.Background(), "env:mobile:api_url")
 	assert.NoError(t, err)
 	assert.Equal(t, "https://db.example.com", val)
@@ -189,7 +189,7 @@ func TestUpdate_GenericDBError(t *testing.T) {
 func TestDelete_OK(t *testing.T) {
 	t.Parallel()
 	svc, mock := newTestService(t)
-	svc.local.Store("mobile:del_me", "val")
+	svc.store.Set(context.Background(), "mobile:del_me", "val")
 
 	cols := envVarColumns()
 	rows := sqlmock.NewRows(cols).AddRow(envVarRow(42, "mobile", "del_me", "val")...)
@@ -199,7 +199,7 @@ func TestDelete_OK(t *testing.T) {
 	err := svc.Delete(context.Background(), "mobile", "del_me", "user_1")
 	require.NoError(t, err)
 
-	_, ok := svc.local.Load("mobile:del_me")
+	_, ok := svc.store.Local("mobile:del_me")
 	assert.False(t, ok)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -238,67 +238,12 @@ func TestDelete_GenericDBError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestReload_PopulatesLocalCache(t *testing.T) {
-	t.Parallel()
-	svc, mock := newTestService(t)
-	cols := envVarColumns()
-	rows := sqlmock.NewRows(cols).
-		AddRow(envVarRow(1, "mobile", "api_url", "https://m.example.com")...).
-		AddRow(envVarRow(2, "web", "api_url", "https://w.example.com")...)
-	mock.ExpectQuery(`SELECT \*`).WillReturnRows(rows)
-
-	err := svc.reload(context.Background())
-	require.NoError(t, err)
-
-	assert.Equal(t, "https://m.example.com", svc.GetValue("mobile", "api_url"))
-	assert.Equal(t, "https://w.example.com", svc.GetValue("web", "api_url"))
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestReload_PrunesStaleKeys(t *testing.T) {
-	t.Parallel()
-	svc, mock := newTestService(t)
-	svc.local.Store("mobile:stale_key", "old_val")
-
-	cols := envVarColumns()
-	rows := sqlmock.NewRows(cols).AddRow(envVarRow(1, "mobile", "fresh_key", "new_val")...)
-	mock.ExpectQuery(`SELECT \*`).WillReturnRows(rows)
-
-	err := svc.reload(context.Background())
-	require.NoError(t, err)
-
-	_, ok := svc.local.Load("mobile:stale_key")
-	assert.False(t, ok, "stale key should be pruned")
-	assert.Equal(t, "new_val", svc.GetValue("mobile", "fresh_key"))
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestReload_DBError(t *testing.T) {
-	t.Parallel()
-	svc, mock := newTestService(t)
-	mock.ExpectQuery(`SELECT \*`).WillReturnError(context.DeadlineExceeded)
-
-	err := svc.reload(context.Background())
-	require.Error(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestReload_EmptyEnvVars(t *testing.T) {
-	t.Parallel()
-	svc, mock := newTestService(t)
-	mock.ExpectQuery(`SELECT \*`).WillReturnRows(sqlmock.NewRows(envVarColumns()))
-
-	err := svc.reload(context.Background())
-	require.NoError(t, err)
-	assert.NoError(t, mock.ExpectationsWereMet())
-}
-
 func TestStartRefresh_RunsAndCancels(t *testing.T) {
 	t.Parallel()
 	db, mock := testutil.NewMockDB(t)
 	repo := NewRepository(db)
 	mc := newMockCache()
-	svc := newServiceWithCache(repo, mc, 50*time.Millisecond)
+	svc := newServiceWithStore(repo, mc, 50*time.Millisecond)
 
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(sqlmock.NewRows(envVarColumns()))
 
@@ -316,16 +261,14 @@ func TestNewService_WrapsValkeyClient(t *testing.T) {
 	vk := testutil.SetupTestValkey(t)
 	svc := NewService(repo, vk, 30*time.Second)
 	assert.NotNil(t, svc)
-	assert.NotNil(t, svc.cache)
+	assert.NotNil(t, svc.store)
 }
 
 func TestListByPlatform_OK(t *testing.T) {
 	t.Parallel()
 	svc, mock := newTestService(t)
 
-	// Count query
 	mock.ExpectQuery(`SELECT COUNT`).WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(1))
-	// Data query
 	cols := envVarColumns()
 	rows := sqlmock.NewRows(cols).AddRow(envVarRow(1, "mobile", "api_url", "val")...)
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(rows)

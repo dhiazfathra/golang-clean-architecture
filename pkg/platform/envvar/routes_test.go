@@ -15,7 +15,7 @@ func TestRegisterRoutes(t *testing.T) {
 	db, _ := testutil.NewMockDB(t)
 	repo := NewRepository(db)
 	mc := newMockCache()
-	svc := newServiceWithCache(repo, mc, 30*time.Second)
+	svc := newServiceWithStore(repo, mc, 30*time.Second)
 	h := NewHandler(svc)
 
 	e := echo.New()

@@ -5,12 +5,16 @@ import (
 	"errors"
 	"sync"
 	"time"
+
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/kvstore"
 )
 
 type mockCache struct {
 	mu   sync.Mutex
 	data map[string]string
 }
+
+var _ kvstore.Cache = (*mockCache)(nil)
 
 func newMockCache() *mockCache {
 	return &mockCache{data: make(map[string]string)}

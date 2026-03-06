@@ -1,6 +1,7 @@
 package featureflag
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,7 +19,7 @@ func newTestServiceForMiddleware(t *testing.T) *Service {
 	db, _ := testutil.NewMockDB(t)
 	repo := NewRepository(db)
 	mc := newMockCache()
-	return newServiceWithCache(repo, mc, 30*time.Second)
+	return newServiceWithStore(repo, mc, 30*time.Second)
 }
 
 func newEchoContext() (echo.Context, *httptest.ResponseRecorder) {
@@ -60,7 +61,7 @@ func TestRequireFlag(t *testing.T) {
 		{
 			name: "enabled passes through",
 			setup: func(svc *Service) {
-				svc.local.Store("enabled_feature", true)
+				svc.store.Set(context.Background(), "enabled_feature", "1")
 			},
 			flag:           "enabled_feature",
 			expectCalled:   true,
@@ -69,7 +70,7 @@ func TestRequireFlag(t *testing.T) {
 		{
 			name: "disabled returns 404",
 			setup: func(svc *Service) {
-				svc.local.Store("disabled_feature", false)
+				svc.store.Set(context.Background(), "disabled_feature", "0")
 			},
 			flag:           "disabled_feature",
 			expectCalled:   false,
