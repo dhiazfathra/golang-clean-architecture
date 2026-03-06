@@ -6,9 +6,9 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 )
 
-// RegisterAdminRoutes registers env var management endpoints under /admin/envs.
+// RegisterRoutes registers env var management endpoints under /envs.
 // All routes require the "envvar:manage" RBAC permission.
-func RegisterAdminRoutes(g *echo.Group, h *Handler, rbacSvc *rbac.Service) {
+func RegisterRoutes(g *echo.Group, h *Handler, rbacSvc *rbac.Service) {
 	eg := g.Group("/envs")
 	eg.Use(rbac.RequirePermission(rbacSvc, "envvar", "manage"))
 	eg.POST("", h.CreateEnv)

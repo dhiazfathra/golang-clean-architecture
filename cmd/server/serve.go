@@ -119,7 +119,7 @@ func setupRouter(deps RouterDeps) *echo.Echo {
 	featureflag.RegisterAdminRoutes(adminGroup, ffHandler, deps.RBACSvc)
 
 	evHandler := envvar.NewHandler(deps.EVSvc)
-	envvar.RegisterAdminRoutes(adminGroup, evHandler, deps.RBACSvc)
+	envvar.RegisterRoutes(protected, evHandler, deps.RBACSvc)
 
 	// Health probes — on root Echo instance, no auth middleware.
 	healthHandler := health.NewHandler(deps.DB, deps.VK)

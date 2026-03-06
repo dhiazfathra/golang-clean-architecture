@@ -10,7 +10,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
-func TestRegisterAdminRoutes(t *testing.T) {
+func TestRegisterRoutes(t *testing.T) {
 	t.Parallel()
 	db, _ := testutil.NewMockDB(t)
 	repo := NewRepository(db)
@@ -19,11 +19,11 @@ func TestRegisterAdminRoutes(t *testing.T) {
 	h := NewHandler(svc)
 
 	e := echo.New()
-	g := e.Group("/admin")
+	g := e.Group("")
 
 	// rbacSvc is nil — we only check that routes are registered without panic.
 	// RBAC middleware is tested separately.
-	RegisterAdminRoutes(g, h, nil)
+	RegisterRoutes(g, h, nil)
 
 	routes := e.Routes()
 	assert.True(t, len(routes) > 0, "expected routes to be registered")

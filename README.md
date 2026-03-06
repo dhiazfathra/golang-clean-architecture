@@ -176,15 +176,15 @@ All API endpoints are prefixed with `/api/v1`. Health probes remain at root for 
 
 Feature flags use a hybrid 3-tier cache: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**. Use `featureflag.RequireFlag(svc, "key")` middleware to gate any route behind a flag.
 
-### Environment Variables (admin)
+### Environment Variables
 
 | Method | Path | Permission |
 |--------|------|------------|
-| POST | `/api/v1/admin/envs` | `envvar:manage` |
-| GET | `/api/v1/admin/envs/:platform/:key` | `envvar:manage` |
-| GET | `/api/v1/admin/envs/:platform` | `envvar:manage` |
-| PUT | `/api/v1/admin/envs/:platform/:key` | `envvar:manage` |
-| DELETE | `/api/v1/admin/envs/:platform/:key` | `envvar:manage` |
+| POST | `/api/v1/envs` | `envvar:manage` |
+| GET | `/api/v1/envs/:platform/:key` | `envvar:manage` |
+| GET | `/api/v1/envs/:platform` | `envvar:manage` |
+| PUT | `/api/v1/envs/:platform/:key` | `envvar:manage` |
+| DELETE | `/api/v1/envs/:platform/:key` | `envvar:manage` |
 
 Dynamic environment variables scoped by platform (`mobile`, `web`, `be`, etc.). Uses the same hybrid 3-tier cache as feature flags: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**.
 

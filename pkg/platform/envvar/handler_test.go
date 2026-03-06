@@ -46,7 +46,7 @@ func TestHandler_CreateEnv_OK(t *testing.T) {
 	h, mock := newTestHandler(t)
 	mock.ExpectExec(`INSERT INTO env_vars`).WillReturnResult(sqlmock.NewResult(1, 1))
 
-	c, rec := echoCtx(http.MethodPost, "/admin/envs",
+	c, rec := echoCtx(http.MethodPost, "/envs",
 		`{"platform":"mobile","key":"api_url","value":"https://api.example.com"}`)
 
 	require.NoError(t, h.CreateEnv(c))
@@ -61,7 +61,7 @@ func TestHandler_CreateEnv_OK(t *testing.T) {
 func TestHandler_CreateEnv_MissingFields(t *testing.T) {
 	t.Parallel()
 	h, _ := newTestHandler(t)
-	c, rec := echoCtx(http.MethodPost, "/admin/envs",
+	c, rec := echoCtx(http.MethodPost, "/envs",
 		`{"platform":"mobile"}`)
 
 	require.NoError(t, h.CreateEnv(c))
@@ -71,7 +71,7 @@ func TestHandler_CreateEnv_MissingFields(t *testing.T) {
 func TestHandler_CreateEnv_BadBody(t *testing.T) {
 	t.Parallel()
 	h, _ := newTestHandler(t)
-	c, rec := echoCtx(http.MethodPost, "/admin/envs", "{bad")
+	c, rec := echoCtx(http.MethodPost, "/envs", "{bad")
 
 	require.NoError(t, h.CreateEnv(c))
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -81,7 +81,7 @@ func TestHandler_CreateEnv_PlatformTooLong(t *testing.T) {
 	t.Parallel()
 	h, _ := newTestHandler(t)
 	longPlatform := strings.Repeat("a", 31)
-	c, rec := echoCtx(http.MethodPost, "/admin/envs",
+	c, rec := echoCtx(http.MethodPost, "/envs",
 		`{"platform":"`+longPlatform+`","key":"k","value":"v"}`)
 
 	require.NoError(t, h.CreateEnv(c))
@@ -92,7 +92,7 @@ func TestHandler_CreateEnv_KeyTooLong(t *testing.T) {
 	t.Parallel()
 	h, _ := newTestHandler(t)
 	longKey := strings.Repeat("k", 51)
-	c, rec := echoCtx(http.MethodPost, "/admin/envs",
+	c, rec := echoCtx(http.MethodPost, "/envs",
 		`{"platform":"mobile","key":"`+longKey+`","value":"v"}`)
 
 	require.NoError(t, h.CreateEnv(c))
@@ -104,7 +104,7 @@ func TestHandler_CreateEnv_InternalError(t *testing.T) {
 	h, mock := newTestHandler(t)
 	mock.ExpectExec(`INSERT INTO env_vars`).WillReturnError(context.DeadlineExceeded)
 
-	c, rec := echoCtx(http.MethodPost, "/admin/envs",
+	c, rec := echoCtx(http.MethodPost, "/envs",
 		`{"platform":"mobile","key":"k","value":"v"}`)
 
 	require.NoError(t, h.CreateEnv(c))
@@ -119,7 +119,7 @@ func TestHandler_GetEnv_OK(t *testing.T) {
 	rows := sqlmock.NewRows(cols).AddRow(envVarRow(1, "mobile", "api_url", "val")...)
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(rows)
 
-	c, rec := echoCtx(http.MethodGet, "/admin/envs/mobile/api_url", "")
+	c, rec := echoCtx(http.MethodGet, "/envs/mobile/api_url", "")
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "api_url")
 
@@ -133,7 +133,7 @@ func TestHandler_GetEnv_NotFound(t *testing.T) {
 	h, mock := newTestHandler(t)
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(sqlmock.NewRows(nil))
 
-	c, rec := echoCtx(http.MethodGet, "/admin/envs/mobile/missing", "")
+	c, rec := echoCtx(http.MethodGet, "/envs/mobile/missing", "")
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "missing")
 
@@ -147,7 +147,7 @@ func TestHandler_GetEnv_InternalError(t *testing.T) {
 	h, mock := newTestHandler(t)
 	mock.ExpectQuery(`SELECT \*`).WillReturnError(context.DeadlineExceeded)
 
-	c, rec := echoCtx(http.MethodGet, "/admin/envs/mobile/api_url", "")
+	c, rec := echoCtx(http.MethodGet, "/envs/mobile/api_url", "")
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "api_url")
 
@@ -165,7 +165,7 @@ func TestHandler_GetEnvsByPlatform_OK(t *testing.T) {
 	rows := sqlmock.NewRows(cols).AddRow(envVarRow(1, "mobile", "api_url", "val")...)
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(rows)
 
-	c, rec := echoCtx(http.MethodGet, "/admin/envs/mobile?page=1&page_size=10", "")
+	c, rec := echoCtx(http.MethodGet, "/envs/mobile?page=1&page_size=10", "")
 	c.SetParamNames("platform")
 	c.SetParamValues("mobile")
 
@@ -182,7 +182,7 @@ func TestHandler_GetEnvsByPlatform_BindError(t *testing.T) {
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(sqlmock.NewRows(envVarColumns()))
 
 	// Send a JSON body with wrong types to trigger Bind error on GET
-	c, rec := echoCtx(http.MethodGet, "/admin/envs/mobile", `{"page":"not_a_number"}`)
+	c, rec := echoCtx(http.MethodGet, "/envs/mobile", `{"page":"not_a_number"}`)
 	c.SetParamNames("platform")
 	c.SetParamValues("mobile")
 
@@ -196,7 +196,7 @@ func TestHandler_GetEnvsByPlatform_InternalError(t *testing.T) {
 	h, mock := newTestHandler(t)
 	mock.ExpectQuery(`SELECT COUNT`).WillReturnError(context.DeadlineExceeded)
 
-	c, rec := echoCtx(http.MethodGet, "/admin/envs/mobile", "")
+	c, rec := echoCtx(http.MethodGet, "/envs/mobile", "")
 	c.SetParamNames("platform")
 	c.SetParamValues("mobile")
 
@@ -213,7 +213,7 @@ func TestHandler_UpdateEnv_OK(t *testing.T) {
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(rows)
 	mock.ExpectExec(`UPDATE env_vars`).WillReturnResult(sqlmock.NewResult(0, 1))
 
-	c, rec := echoCtx(http.MethodPut, "/admin/envs/mobile/api_url", `{"value":"new_val"}`)
+	c, rec := echoCtx(http.MethodPut, "/envs/mobile/api_url", `{"value":"new_val"}`)
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "api_url")
 
@@ -227,7 +227,7 @@ func TestHandler_UpdateEnv_NotFound(t *testing.T) {
 	h, mock := newTestHandler(t)
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(sqlmock.NewRows(nil))
 
-	c, rec := echoCtx(http.MethodPut, "/admin/envs/mobile/missing", `{"value":"val"}`)
+	c, rec := echoCtx(http.MethodPut, "/envs/mobile/missing", `{"value":"val"}`)
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "missing")
 
@@ -239,7 +239,7 @@ func TestHandler_UpdateEnv_NotFound(t *testing.T) {
 func TestHandler_UpdateEnv_BadBody(t *testing.T) {
 	t.Parallel()
 	h, _ := newTestHandler(t)
-	c, rec := echoCtx(http.MethodPut, "/admin/envs/mobile/k", "{bad")
+	c, rec := echoCtx(http.MethodPut, "/envs/mobile/k", "{bad")
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "k")
 
@@ -250,7 +250,7 @@ func TestHandler_UpdateEnv_BadBody(t *testing.T) {
 func TestHandler_UpdateEnv_EmptyValue(t *testing.T) {
 	t.Parallel()
 	h, _ := newTestHandler(t)
-	c, rec := echoCtx(http.MethodPut, "/admin/envs/mobile/k", `{"value":""}`)
+	c, rec := echoCtx(http.MethodPut, "/envs/mobile/k", `{"value":""}`)
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "k")
 
@@ -263,7 +263,7 @@ func TestHandler_UpdateEnv_InternalError(t *testing.T) {
 	h, mock := newTestHandler(t)
 	mock.ExpectQuery(`SELECT \*`).WillReturnError(context.DeadlineExceeded)
 
-	c, rec := echoCtx(http.MethodPut, "/admin/envs/mobile/k", `{"value":"v"}`)
+	c, rec := echoCtx(http.MethodPut, "/envs/mobile/k", `{"value":"v"}`)
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "k")
 
@@ -280,7 +280,7 @@ func TestHandler_DeleteEnv_OK(t *testing.T) {
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(rows)
 	mock.ExpectExec(`UPDATE env_vars SET is_deleted`).WillReturnResult(sqlmock.NewResult(0, 1))
 
-	c, rec := echoCtx(http.MethodDelete, "/admin/envs/mobile/del_key", "")
+	c, rec := echoCtx(http.MethodDelete, "/envs/mobile/del_key", "")
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "del_key")
 
@@ -294,7 +294,7 @@ func TestHandler_DeleteEnv_NotFound(t *testing.T) {
 	h, mock := newTestHandler(t)
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(sqlmock.NewRows(nil))
 
-	c, rec := echoCtx(http.MethodDelete, "/admin/envs/mobile/missing", "")
+	c, rec := echoCtx(http.MethodDelete, "/envs/mobile/missing", "")
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "missing")
 
@@ -308,7 +308,7 @@ func TestHandler_DeleteEnv_InternalError(t *testing.T) {
 	h, mock := newTestHandler(t)
 	mock.ExpectQuery(`SELECT \*`).WillReturnError(context.DeadlineExceeded)
 
-	c, rec := echoCtx(http.MethodDelete, "/admin/envs/mobile/k", "")
+	c, rec := echoCtx(http.MethodDelete, "/envs/mobile/k", "")
 	c.SetParamNames("platform", "key")
 	c.SetParamValues("mobile", "k")
 
