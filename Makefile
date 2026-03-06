@@ -1,4 +1,4 @@
-.PHONY: infra-up infra-down build test cover migrate seed generate lint run vet install-hooks sql-validate
+.PHONY: infra-up infra-down build test cover migrate seed generate lint run vet install-hooks sql-validate setup-prereqs setup setup-reset
 
 SERVICE_NAME ?= golang-clean-arch
 ENV          ?= development
@@ -37,6 +37,15 @@ vet:
 
 install-hooks:
 	@bash scripts/install-hooks.sh
+
+setup-prereqs:
+	@bash scripts/setup-prerequisites.sh
+
+setup:
+	@bash scripts/setup.sh
+
+setup-reset:
+	@bash scripts/setup.sh --reset
 
 sql-validate:
 	@bash -c 'for f in migrations/*.up.sql; do \

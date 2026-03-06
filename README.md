@@ -26,7 +26,58 @@ A Go backend demonstrating a **modular monolith** with **event sourcing**, **RBA
 
 ---
 
-## Quick Start
+## Full Setup (One Command)
+
+### Prerequisites
+
+Install Go, Docker, Docker Compose, psql, Make, and git:
+
+```bash
+# macOS / Linux / WSL2
+bash scripts/setup-prerequisites.sh
+```
+
+To check if prerequisites are already installed:
+
+```bash
+bash scripts/setup-prerequisites.sh --check
+```
+
+### Bootstrap & Run
+
+```bash
+make setup
+```
+
+This will: start Postgres + Valkey, apply migrations, seed initial data, and start the server.
+
+| Flag | Description |
+|------|-------------|
+| `--skip-prereqs` | Skip prerequisite check |
+| `--no-seed` | Skip database seeding |
+| `--no-run` | Setup infrastructure only |
+| `--reset` | Tear down existing infra before starting |
+
+```bash
+# Example: reset and rebuild everything
+make setup-reset
+
+# Example: setup infra only, don't start server
+bash scripts/setup.sh --no-run
+```
+
+### Windows (WSL2)
+
+1. Install WSL2: `wsl --install` from PowerShell (admin)
+2. Open the WSL2 terminal (Ubuntu)
+3. Clone the repo and run: `bash scripts/setup-prerequisites.sh`
+4. Run: `make setup`
+
+> Docker Desktop must be installed with WSL2 integration enabled.
+
+---
+
+## Quick Start (Manual)
 
 ```bash
 # 1. Start infrastructure (Postgres + Valkey)
