@@ -18,6 +18,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/docs"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/envvar"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/featureflag"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/health"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
@@ -91,6 +92,7 @@ type RouterDeps struct {
 	UserSvc      *user.Service
 	OrderSvc     *order.Service
 	FFSvc        *featureflag.Service
+	EVSvc        *envvar.Service
 }
 
 func setupRouter(deps RouterDeps) *echo.Echo {
@@ -114,6 +116,9 @@ func setupRouter(deps RouterDeps) *echo.Echo {
 
 	ffHandler := featureflag.NewHandler(deps.FFSvc)
 	featureflag.RegisterAdminRoutes(adminGroup, ffHandler, deps.RBACSvc)
+
+	evHandler := envvar.NewHandler(deps.EVSvc)
+	envvar.RegisterAdminRoutes(adminGroup, evHandler, deps.RBACSvc)
 
 	// Health probes — on root Echo instance, no auth middleware.
 	healthHandler := health.NewHandler(deps.DB, deps.VK)

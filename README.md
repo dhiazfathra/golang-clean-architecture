@@ -174,6 +174,18 @@ See [docs/new-module-checklist.md](docs/new-module-checklist.md) for the full ch
 
 Feature flags use a hybrid 3-tier cache: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**. Use `featureflag.RequireFlag(svc, "key")` middleware to gate any route behind a flag.
 
+### Environment Variables (admin)
+
+| Method | Path | Permission |
+|--------|------|------------|
+| POST | `/admin/envs` | `envvar:manage` |
+| GET | `/admin/envs/:platform/:key` | `envvar:manage` |
+| GET | `/admin/envs/:platform` | `envvar:manage` |
+| PUT | `/admin/envs/:platform/:key` | `envvar:manage` |
+| DELETE | `/admin/envs/:platform/:key` | `envvar:manage` |
+
+Dynamic environment variables scoped by platform (`mobile`, `web`, `be`, etc.). Uses the same hybrid 3-tier cache as feature flags: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**.
+
 ### Audit
 
 | Method | Path | Permission |
@@ -210,6 +222,7 @@ All values can be set via environment variables or a YAML file (`CONFIG_FILE=pat
 | `SEED_DEFAULT_MODULE_PASSWORD` | — | Password for module admin users |
 | `SNOWFLAKE_NODE_ID` | `1` | Snowflake node ID (1–1023) |
 | `FEATURE_FLAG_REFRESH_TTL` | `30s` | Feature flag cache refresh interval (min `1s`) |
+| `ENV_VAR_REFRESH_TTL` | `30s` | Dynamic env var cache refresh interval (min `1s`) |
 | `DD_API_KEY` | — | Datadog API key (optional; disables APM if unset) |
 | `DD_ENV` | — | Datadog environment tag |
 | `DD_SERVICE` | — | Datadog service name |

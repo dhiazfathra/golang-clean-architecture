@@ -37,6 +37,9 @@ type Config struct {
 
 	// Feature Flags
 	FeatureFlagRefreshTTL time.Duration `yaml:"feature_flag_refresh_ttl"`
+
+	// Env Vars
+	EnvVarRefreshTTL time.Duration `yaml:"env_var_refresh_ttl"`
 }
 
 func MustLoad() *Config {
@@ -50,6 +53,7 @@ func MustLoad() *Config {
 		StatsdAddr:            "localhost:8125",
 		StatsdNamespace:       "golang_clean_arch.",
 		FeatureFlagRefreshTTL: 30 * time.Second,
+		EnvVarRefreshTTL:      30 * time.Second,
 	}
 
 	loadYAML(cfg)
@@ -104,6 +108,7 @@ func applyEnvOverrides(cfg *Config) {
 	overrideInt("DB_MAX_IDLE_CONNS", &cfg.DBMaxIdleConns)
 	overrideDuration("SESSION_TTL", &cfg.SessionTTL)
 	overrideDuration("FEATURE_FLAG_REFRESH_TTL", &cfg.FeatureFlagRefreshTTL)
+	overrideDuration("ENV_VAR_REFRESH_TTL", &cfg.EnvVarRefreshTTL)
 }
 
 func overrideStr(key string, target *string) {
@@ -151,6 +156,9 @@ func (c *Config) validate() error {
 	}
 	if c.FeatureFlagRefreshTTL < time.Second {
 		errs = append(errs, "FEATURE_FLAG_REFRESH_TTL must be >= 1s")
+	}
+	if c.EnvVarRefreshTTL < time.Second {
+		errs = append(errs, "ENV_VAR_REFRESH_TTL must be >= 1s")
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("validation:\n  - %s", strings.Join(errs, "\n  - "))

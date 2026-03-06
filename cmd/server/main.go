@@ -12,6 +12,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/envvar"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/featureflag"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
@@ -76,6 +77,10 @@ func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 	ffSvc := featureflag.NewService(ffRepo, vk, cfg.FeatureFlagRefreshTTL)
 	ffSvc.StartRefresh(ctx)
 
+	evRepo := envvar.NewRepository(db)
+	evSvc := envvar.NewService(evRepo, vk, cfg.EnvVarRefreshTTL)
+	evSvc.StartRefresh(ctx)
+
 	if err := seeder.Seed(ctx, rbacSvc, &seederUserAdapter{userSvc},
 		cfg.SeedSuperAdminPassword, cfg.SeedDefaultModulePassword); err != nil {
 		cancel()
@@ -102,5 +107,6 @@ func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 		UserSvc:      userSvc,
 		OrderSvc:     orderSvc,
 		FFSvc:        ffSvc,
+		EVSvc:        evSvc,
 	}, cleanup, nil
 }
