@@ -3,6 +3,7 @@ package kvstore
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -173,9 +174,14 @@ func TestStore_Reload_Empty(t *testing.T) {
 
 func TestStore_StartRefresh_RunsAndCancels(t *testing.T) {
 	mc := newMockCache()
-	called := 0
+
+	// Use atomic.Int32 instead of plain int to prevent racing condition.
+	// The loader runs in a separate goroutine via StartRefresh, so
+	// concurrent Add and Load calls must be synchronized.
+	var called atomic.Int32
+
 	loader := func(_ context.Context) (map[string]string, error) {
-		called++
+		called.Add(1) // atomic write — safe from the refresh goroutine
 		return map[string]string{}, nil
 	}
 	s := NewStore(mc, "test:", 50*time.Millisecond, loader)
@@ -185,7 +191,10 @@ func TestStore_StartRefresh_RunsAndCancels(t *testing.T) {
 	time.Sleep(80 * time.Millisecond)
 	cancel()
 	time.Sleep(20 * time.Millisecond)
-	assert.GreaterOrEqual(t, called, 1)
+
+	// atomic.Load guarantees visibility of all prior Add calls
+	// across goroutines without a mutex.
+	assert.GreaterOrEqual(t, called.Load(), int32(1))
 }
 
 func TestStore_Local_Miss(t *testing.T) {
