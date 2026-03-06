@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/kvstore"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
@@ -17,7 +18,7 @@ func newTestService(t *testing.T) (*Service, sqlmock.Sqlmock) {
 	t.Helper()
 	db, mock := testutil.NewMockDB(t)
 	repo := NewRepository(db)
-	mc := newMockCache()
+	mc := kvstore.NewMockCache()
 	svc := newServiceWithStore(repo, mc, 30*time.Second)
 	return svc, mock
 }
@@ -145,8 +146,8 @@ func TestList_ReturnsFlags(t *testing.T) {
 func TestIsEnabled_L2_CacheHit(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	repo := NewRepository(db)
-	mc := newMockCache()
-	mc.data["ff:cached_flag"] = "1"
+	mc := kvstore.NewMockCache()
+	mc.Data["ff:cached_flag"] = "1"
 	svc := newServiceWithStore(repo, mc, 30*time.Second)
 
 	assert.True(t, svc.IsEnabled("cached_flag"))
@@ -159,8 +160,8 @@ func TestIsEnabled_L2_CacheHit(t *testing.T) {
 func TestIsEnabled_L2_CacheHit_Disabled(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	repo := NewRepository(db)
-	mc := newMockCache()
-	mc.data["ff:off_flag"] = "0"
+	mc := kvstore.NewMockCache()
+	mc.Data["ff:off_flag"] = "0"
 	svc := newServiceWithStore(repo, mc, 30*time.Second)
 
 	assert.False(t, svc.IsEnabled("off_flag"))
@@ -170,7 +171,7 @@ func TestIsEnabled_L2_CacheHit_Disabled(t *testing.T) {
 func TestIsEnabled_L3_PostgresFallback(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	repo := NewRepository(db)
-	mc := newMockCache()
+	mc := kvstore.NewMockCache()
 	svc := newServiceWithStore(repo, mc, 30*time.Second)
 
 	cols := flagColumns()
@@ -244,7 +245,7 @@ func TestDelete_GenericDBError(t *testing.T) {
 func TestStartRefresh_RunsAndCancels(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	repo := NewRepository(db)
-	mc := newMockCache()
+	mc := kvstore.NewMockCache()
 	svc := newServiceWithStore(repo, mc, 50*time.Millisecond)
 
 	mock.ExpectQuery(`SELECT \*`).WillReturnRows(sqlmock.NewRows(flagColumns()))

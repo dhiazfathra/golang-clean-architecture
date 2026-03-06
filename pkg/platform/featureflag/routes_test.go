@@ -7,13 +7,14 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/kvstore"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
 func TestRegisterAdminRoutes(t *testing.T) {
 	db, _ := testutil.NewMockDB(t)
 	repo := NewRepository(db)
-	mc := newMockCache()
+	mc := kvstore.NewMockCache()
 	svc := newServiceWithStore(repo, mc, 30*time.Second)
 	h := NewHandler(svc)
 

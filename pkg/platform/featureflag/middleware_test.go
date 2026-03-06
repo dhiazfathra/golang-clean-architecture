@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/kvstore"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
@@ -18,7 +19,7 @@ func newTestServiceForMiddleware(t *testing.T) *Service {
 	t.Helper()
 	db, _ := testutil.NewMockDB(t)
 	repo := NewRepository(db)
-	mc := newMockCache()
+	mc := kvstore.NewMockCache()
 	return newServiceWithStore(repo, mc, 30*time.Second)
 }
 

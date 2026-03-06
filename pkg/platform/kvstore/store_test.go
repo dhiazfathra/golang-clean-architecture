@@ -12,56 +12,59 @@ import (
 )
 
 func TestStore_Get_L1_Hit(t *testing.T) {
-	mc := newMockCache()
-	s := NewStore(mc, "test:", 30*time.Second, nil)
-	s.local.Store("mykey", "myval")
+	mc := NewMockCache()
+	s := NewStore(mc, testPrefix, 30*time.Second, nil)
+	s.local.Store(testKey, "myval")
 
-	val, ok := s.Get("mykey", nil)
+	val, ok := s.Get(testKey, nil)
 	assert.True(t, ok)
 	assert.Equal(t, "myval", val)
 }
 
-func TestStore_Get_L2_Hit(t *testing.T) {
-	mc := newMockCache()
-	mc.data["test:mykey"] = "cached_val"
-	s := NewStore(mc, "test:", 30*time.Second, nil)
+const testPrefix = "test:"
+const testKey = "tkey"
 
-	val, ok := s.Get("mykey", nil)
+func TestStore_Get_L2_Hit(t *testing.T) {
+	mc := NewMockCache()
+	mc.Data[testPrefix+testKey] = "cached_val"
+	s := NewStore(mc, testPrefix, 30*time.Second, nil)
+
+	val, ok := s.Get(testKey, nil)
 	assert.True(t, ok)
 	assert.Equal(t, "cached_val", val)
 
 	// Verify promoted to L1
-	v, ok := s.Local("mykey")
+	v, ok := s.Local(testKey)
 	assert.True(t, ok)
 	assert.Equal(t, "cached_val", v)
 }
 
 func TestStore_Get_L3_Fallback(t *testing.T) {
-	mc := newMockCache()
-	s := NewStore(mc, "test:", 30*time.Second, nil)
+	mc := NewMockCache()
+	s := NewStore(mc, testPrefix, 30*time.Second, nil)
 
 	fallback := func() (string, error) {
 		return "db_val", nil
 	}
 
-	val, ok := s.Get("mykey", fallback)
+	val, ok := s.Get(testKey, fallback)
 	assert.True(t, ok)
 	assert.Equal(t, "db_val", val)
 
 	// Verify backfill to L1
-	v, ok := s.Local("mykey")
+	v, ok := s.Local(testKey)
 	assert.True(t, ok)
 	assert.Equal(t, "db_val", v)
 
 	// Verify backfill to L2
-	cached, err := mc.Get(context.Background(), "test:mykey")
+	cached, err := mc.Get(context.Background(), testPrefix+testKey)
 	assert.NoError(t, err)
 	assert.Equal(t, "db_val", cached)
 }
 
 func TestStore_Get_AllMiss(t *testing.T) {
-	mc := newMockCache()
-	s := NewStore(mc, "test:", 30*time.Second, nil)
+	mc := NewMockCache()
+	s := NewStore(mc, testPrefix, 30*time.Second, nil)
 
 	val, ok := s.Get("missing", nil)
 	assert.False(t, ok)
@@ -69,8 +72,8 @@ func TestStore_Get_AllMiss(t *testing.T) {
 }
 
 func TestStore_Get_FallbackError(t *testing.T) {
-	mc := newMockCache()
-	s := NewStore(mc, "test:", 30*time.Second, nil)
+	mc := NewMockCache()
+	s := NewStore(mc, testPrefix, 30*time.Second, nil)
 
 	fallback := func() (string, error) {
 		return "", errors.New("db error")
@@ -82,42 +85,42 @@ func TestStore_Get_FallbackError(t *testing.T) {
 }
 
 func TestStore_Set(t *testing.T) {
-	mc := newMockCache()
-	s := NewStore(mc, "test:", 30*time.Second, nil)
+	mc := NewMockCache()
+	s := NewStore(mc, testPrefix, 30*time.Second, nil)
 
-	s.Set(context.Background(), "mykey", "myval")
+	s.Set(context.Background(), testKey, "myval")
 
 	// L1
-	v, ok := s.Local("mykey")
+	v, ok := s.Local(testKey)
 	assert.True(t, ok)
 	assert.Equal(t, "myval", v)
 
 	// L2
-	cached, err := mc.Get(context.Background(), "test:mykey")
+	cached, err := mc.Get(context.Background(), testPrefix+testKey)
 	assert.NoError(t, err)
 	assert.Equal(t, "myval", cached)
 }
 
 func TestStore_Delete(t *testing.T) {
-	mc := newMockCache()
-	s := NewStore(mc, "test:", 30*time.Second, nil)
+	mc := NewMockCache()
+	s := NewStore(mc, testPrefix, 30*time.Second, nil)
 
-	s.Set(context.Background(), "mykey", "myval")
-	s.Delete(context.Background(), "mykey")
+	s.Set(context.Background(), testKey, "myval")
+	s.Delete(context.Background(), testKey)
 
-	_, ok := s.Local("mykey")
+	_, ok := s.Local(testKey)
 	assert.False(t, ok)
 
-	_, err := mc.Get(context.Background(), "test:mykey")
+	_, err := mc.Get(context.Background(), testPrefix+testKey)
 	assert.Error(t, err)
 }
 
 func TestStore_Reload_PopulatesCache(t *testing.T) {
-	mc := newMockCache()
+	mc := NewMockCache()
 	loader := func(_ context.Context) (map[string]string, error) {
 		return map[string]string{"a": "1", "b": "2"}, nil
 	}
-	s := NewStore(mc, "test:", 30*time.Second, loader)
+	s := NewStore(mc, testPrefix, 30*time.Second, loader)
 
 	err := s.reload(context.Background())
 	require.NoError(t, err)
@@ -132,11 +135,11 @@ func TestStore_Reload_PopulatesCache(t *testing.T) {
 }
 
 func TestStore_Reload_PrunesStaleKeys(t *testing.T) {
-	mc := newMockCache()
+	mc := NewMockCache()
 	loader := func(_ context.Context) (map[string]string, error) {
 		return map[string]string{"fresh": "val"}, nil
 	}
-	s := NewStore(mc, "test:", 30*time.Second, loader)
+	s := NewStore(mc, testPrefix, 30*time.Second, loader)
 	s.local.Store("stale", "old")
 
 	err := s.reload(context.Background())
@@ -151,29 +154,29 @@ func TestStore_Reload_PrunesStaleKeys(t *testing.T) {
 }
 
 func TestStore_Reload_DBError(t *testing.T) {
-	mc := newMockCache()
+	mc := NewMockCache()
 	loader := func(_ context.Context) (map[string]string, error) {
 		return nil, errors.New("db error")
 	}
-	s := NewStore(mc, "test:", 30*time.Second, loader)
+	s := NewStore(mc, testPrefix, 30*time.Second, loader)
 
 	err := s.reload(context.Background())
 	require.Error(t, err)
 }
 
 func TestStore_Reload_Empty(t *testing.T) {
-	mc := newMockCache()
+	mc := NewMockCache()
 	loader := func(_ context.Context) (map[string]string, error) {
 		return map[string]string{}, nil
 	}
-	s := NewStore(mc, "test:", 30*time.Second, loader)
+	s := NewStore(mc, testPrefix, 30*time.Second, loader)
 
 	err := s.reload(context.Background())
 	require.NoError(t, err)
 }
 
 func TestStore_StartRefresh_RunsAndCancels(t *testing.T) {
-	mc := newMockCache()
+	mc := NewMockCache()
 
 	// Use atomic.Int32 instead of plain int to prevent racing condition.
 	// The loader runs in a separate goroutine via StartRefresh, so
@@ -184,7 +187,7 @@ func TestStore_StartRefresh_RunsAndCancels(t *testing.T) {
 		called.Add(1) // atomic write — safe from the refresh goroutine
 		return map[string]string{}, nil
 	}
-	s := NewStore(mc, "test:", 50*time.Millisecond, loader)
+	s := NewStore(mc, testPrefix, 50*time.Millisecond, loader)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	s.StartRefresh(ctx)
@@ -198,8 +201,8 @@ func TestStore_StartRefresh_RunsAndCancels(t *testing.T) {
 }
 
 func TestStore_Local_Miss(t *testing.T) {
-	mc := newMockCache()
-	s := NewStore(mc, "test:", 30*time.Second, nil)
+	mc := NewMockCache()
+	s := NewStore(mc, testPrefix, 30*time.Second, nil)
 
 	_, ok := s.Local("nonexistent")
 	assert.False(t, ok)
