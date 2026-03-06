@@ -312,7 +312,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/HealthResponse'
 
-  /auth/login:
+  /api/v1/auth/login:
     post:
       tags: [Auth]
       summary: Log in
@@ -334,7 +334,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /auth/logout:
+  /api/v1/auth/logout:
     post:
       tags: [Auth]
       summary: Log out
@@ -346,7 +346,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /auth/me:
+  /api/v1/auth/me:
     get:
       tags: [Auth]
       summary: Current user
@@ -362,7 +362,7 @@ paths:
         '401':
           $ref: '#/components/responses/Unauthorized'
 
-  /users:
+  /api/v1/users:
     post:
       tags: [Users]
       summary: Create user
@@ -429,7 +429,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  /users/{id}:
+  /api/v1/users/{id}:
     get:
       tags: [Users]
       summary: Get user by ID
@@ -503,7 +503,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /users/{id}/roles:
+  /api/v1/users/{id}/roles:
     post:
       tags: [Users]
       summary: Assign role to user
@@ -533,7 +533,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /orders:
+  /api/v1/orders:
     post:
       tags: [Orders]
       summary: Create order
@@ -600,7 +600,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  /orders/{id}:
+  /api/v1/orders/{id}:
     get:
       tags: [Orders]
       summary: Get order by ID
@@ -674,7 +674,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /admin/roles:
+  /api/v1/admin/roles:
     post:
       tags: [RBAC]
       summary: Create role
@@ -718,7 +718,7 @@ paths:
         '403':
           $ref: '#/components/responses/Forbidden'
 
-  /admin/roles/{id}:
+  /api/v1/admin/roles/{id}:
     get:
       tags: [RBAC]
       summary: Get role by ID
@@ -764,7 +764,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
 
-  /admin/audit/{type}/{id}:
+  /api/v1/admin/audit/{type}/{id}:
     get:
       tags: [RBAC]
       summary: Get audit history for an aggregate

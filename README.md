@@ -124,53 +124,55 @@ See [docs/new-module-checklist.md](docs/new-module-checklist.md) for the full ch
 
 ## API Endpoints
 
+All API endpoints are prefixed with `/api/v1`. Health probes remain at root for infrastructure compatibility.
+
 ### Auth
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/auth/login` | Authenticate; sets session cookie |
-| POST | `/auth/logout` | Invalidate session |
-| GET | `/auth/me` | Current user info |
+| POST | `/api/v1/auth/login` | Authenticate; sets session cookie |
+| POST | `/api/v1/auth/logout` | Invalidate session |
+| GET | `/api/v1/auth/me` | Current user info |
 
 ### Users
 
 | Method | Path | Auth | Permission |
 |--------|------|------|------------|
-| POST | `/users` | session | `user:create` |
-| GET | `/users` | session | `user:list` |
-| GET | `/users/:id` | session | `user:read` |
-| DELETE | `/users/:id` | session | `user:delete` |
-| GET | `/admin/users/:id` | session | `user:read` (includes soft-deleted) |
+| POST | `/api/v1/users` | session | `user:create` |
+| GET | `/api/v1/users` | session | `user:list` |
+| GET | `/api/v1/users/:id` | session | `user:read` |
+| DELETE | `/api/v1/users/:id` | session | `user:delete` |
+| GET | `/api/v1/admin/users/:id` | session | `user:read` (includes soft-deleted) |
 
 ### Orders
 
 | Method | Path | Auth | Permission |
 |--------|------|------|------------|
-| POST | `/orders` | session | `order:create` |
-| GET | `/orders` | session | `order:list` |
-| GET | `/orders/:id` | session | `order:read` |
-| DELETE | `/orders/:id` | session | `order:delete` |
+| POST | `/api/v1/orders` | session | `order:create` |
+| GET | `/api/v1/orders` | session | `order:list` |
+| GET | `/api/v1/orders/:id` | session | `order:read` |
+| DELETE | `/api/v1/orders/:id` | session | `order:delete` |
 
 ### RBAC (admin)
 
 | Method | Path | Permission |
 |--------|------|------------|
-| POST | `/admin/roles` | `rbac:manage` |
-| GET | `/admin/roles` | `rbac:manage` |
-| GET | `/admin/roles/:id` | `rbac:manage` |
-| DELETE | `/admin/roles/:id` | `rbac:manage` |
-| POST | `/admin/roles/:id/permissions` | `rbac:manage` |
-| DELETE | `/admin/roles/:id/permissions/:perm` | `rbac:manage` |
-| GET | `/admin/users/:id/roles` | `rbac:manage` |
+| POST | `/api/v1/admin/roles` | `rbac:manage` |
+| GET | `/api/v1/admin/roles` | `rbac:manage` |
+| GET | `/api/v1/admin/roles/:id` | `rbac:manage` |
+| DELETE | `/api/v1/admin/roles/:id` | `rbac:manage` |
+| POST | `/api/v1/admin/roles/:id/permissions` | `rbac:manage` |
+| DELETE | `/api/v1/admin/roles/:id/permissions/:perm` | `rbac:manage` |
+| GET | `/api/v1/admin/users/:id/roles` | `rbac:manage` |
 
 ### Feature Flags (admin)
 
 | Method | Path | Permission |
 |--------|------|------------|
-| GET | `/admin/feature-flags` | `featureflag:manage` |
-| POST | `/admin/feature-flags` | `featureflag:manage` |
-| PATCH | `/admin/feature-flags/:key` | `featureflag:manage` |
-| DELETE | `/admin/feature-flags/:key` | `featureflag:manage` |
+| GET | `/api/v1/admin/feature-flags` | `featureflag:manage` |
+| POST | `/api/v1/admin/feature-flags` | `featureflag:manage` |
+| PATCH | `/api/v1/admin/feature-flags/:key` | `featureflag:manage` |
+| DELETE | `/api/v1/admin/feature-flags/:key` | `featureflag:manage` |
 
 Feature flags use a hybrid 3-tier cache: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**. Use `featureflag.RequireFlag(svc, "key")` middleware to gate any route behind a flag.
 
@@ -178,11 +180,11 @@ Feature flags use a hybrid 3-tier cache: **sync.Map (in-process) → Valkey (sha
 
 | Method | Path | Permission |
 |--------|------|------------|
-| POST | `/admin/envs` | `envvar:manage` |
-| GET | `/admin/envs/:platform/:key` | `envvar:manage` |
-| GET | `/admin/envs/:platform` | `envvar:manage` |
-| PUT | `/admin/envs/:platform/:key` | `envvar:manage` |
-| DELETE | `/admin/envs/:platform/:key` | `envvar:manage` |
+| POST | `/api/v1/admin/envs` | `envvar:manage` |
+| GET | `/api/v1/admin/envs/:platform/:key` | `envvar:manage` |
+| GET | `/api/v1/admin/envs/:platform` | `envvar:manage` |
+| PUT | `/api/v1/admin/envs/:platform/:key` | `envvar:manage` |
+| DELETE | `/api/v1/admin/envs/:platform/:key` | `envvar:manage` |
 
 Dynamic environment variables scoped by platform (`mobile`, `web`, `be`, etc.). Uses the same hybrid 3-tier cache as feature flags: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**.
 
@@ -190,7 +192,7 @@ Dynamic environment variables scoped by platform (`mobile`, `web`, `be`, etc.). 
 
 | Method | Path | Permission |
 |--------|------|------------|
-| GET | `/admin/audit/:type/:id` | `audit:read` |
+| GET | `/api/v1/admin/audit/:type/:id` | `audit:read` |
 
 ### Health
 

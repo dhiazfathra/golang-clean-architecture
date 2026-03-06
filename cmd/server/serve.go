@@ -100,8 +100,9 @@ func setupRouter(deps RouterDeps) *echo.Echo {
 	e.Use(observability.EchoMiddleware(deps.Cfg.ServiceName))
 	e.Use(observability.RequestMetrics())
 
-	public := e.Group("")
-	protected := e.Group("")
+	v1 := e.Group("/api/v1")
+	public := v1.Group("")
+	protected := v1.Group("")
 	protected.Use(session.RequireSession(deps.SessionStore))
 
 	adminGroup := protected.Group("/admin")
@@ -128,8 +129,8 @@ func setupRouter(deps RouterDeps) *echo.Echo {
 	// API docs — only in non-production environments.
 	if deps.Cfg.Env != "production" {
 		docsHandler := docs.NewHandler(goapi.Files)
-		public.GET("/docs", docsHandler.ScalarUI)
-		public.GET("/openapi.yaml", docsHandler.OpenAPISpec)
+		e.GET("/docs", docsHandler.ScalarUI)
+		e.GET("/openapi.yaml", docsHandler.OpenAPISpec)
 	}
 
 	return e
