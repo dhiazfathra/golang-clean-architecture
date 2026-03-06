@@ -1,6 +1,7 @@
 package user_test
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
@@ -71,7 +72,7 @@ func TestApplyUser_RoleAssigned(t *testing.T) {
 	user.ApplyUser(s, roleAssigned("editor"))
 
 	want := []string{"admin", "editor"}
-	if !equalSlices(s.RoleIDs, want) {
+	if !slices.Equal(s.RoleIDs, want) {
 		t.Errorf("RoleIDs: got %v, want %v", s.RoleIDs, want)
 	}
 }
@@ -81,7 +82,7 @@ func TestApplyUser_RoleUnassigned_RemovesCorrectRole(t *testing.T) {
 	user.ApplyUser(s, roleUnassigned("editor"))
 
 	want := []string{"admin", "viewer"}
-	if !equalSlices(s.RoleIDs, want) {
+	if !slices.Equal(s.RoleIDs, want) {
 		t.Errorf("RoleIDs: got %v, want %v", s.RoleIDs, want)
 	}
 }
@@ -90,7 +91,7 @@ func TestApplyUser_RoleUnassigned_NonExistentRoleIsNoop(t *testing.T) {
 	s := &user.UserState{RoleIDs: []string{"admin"}}
 	user.ApplyUser(s, roleUnassigned("ghost"))
 
-	if !equalSlices(s.RoleIDs, []string{"admin"}) {
+	if !slices.Equal(s.RoleIDs, []string{"admin"}) {
 		t.Errorf("RoleIDs: got %v, want [admin]", s.RoleIDs)
 	}
 }
@@ -120,7 +121,7 @@ func TestApplyUser_FullLifecycle(t *testing.T) {
 	if s.Active {
 		t.Error("Active: want false")
 	}
-	if !equalSlices(s.RoleIDs, []string{"editor"}) {
+	if !slices.Equal(s.RoleIDs, []string{"editor"}) {
 		t.Errorf("RoleIDs: got %v, want [editor]", s.RoleIDs)
 	}
 }
@@ -134,18 +135,4 @@ func TestApplyUser_UnknownEventIsNoop(t *testing.T) {
 	if s.Email != "x@example.com" || !s.Active {
 		t.Error("unknown event mutated state unexpectedly")
 	}
-}
-
-// ---
-
-func equalSlices(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
