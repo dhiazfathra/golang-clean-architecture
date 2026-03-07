@@ -136,3 +136,46 @@ func TestValkeyStore_Refresh_NotFound(t *testing.T) {
 	err := store.Refresh(context.Background(), "no-such-session", time.Minute)
 	assert.Error(t, err)
 }
+
+func TestValkeyStore_Create_StoreFailure(t *testing.T) {
+	url := valkeyURL(t)
+	client := session.MustConnectValkey(url)
+	store := session.NewValkeyStore(client)
+	client.Close()
+
+	_, err := store.Create(context.Background(), "user-create-fail", time.Minute, nil)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "session: store")
+}
+
+func TestValkeyStore_Get_InvalidPayload(t *testing.T) {
+	url := valkeyURL(t)
+	client := session.MustConnectValkey(url)
+	store := session.NewValkeyStore(client)
+	ctx := context.Background()
+
+	err := client.Do(ctx, client.B().Set().Key("session:bad-json").Value("not-json").Build()).Error()
+	require.NoError(t, err)
+
+	got, err := store.Get(ctx, "bad-json")
+	require.Error(t, err)
+	assert.Nil(t, got)
+	assert.Contains(t, err.Error(), "session: unmarshal")
+}
+
+func TestValkeyStore_Get_ClientFailureReturnsNil(t *testing.T) {
+	url := valkeyURL(t)
+	client := session.MustConnectValkey(url)
+	store := session.NewValkeyStore(client)
+	client.Close()
+
+	got, err := store.Get(context.Background(), "any-session")
+	require.NoError(t, err)
+	assert.Nil(t, got)
+}
+
+func TestMustConnectValkey_PanicsOnInvalidURL(t *testing.T) {
+	assert.Panics(t, func() {
+		_ = session.MustConnectValkey(string([]byte{0x7f}))
+	})
+}

@@ -9,10 +9,13 @@ import (
 
 	"github.com/DataDog/datadog-go/v5/statsd"
 	ddtracer "github.com/DataDog/dd-trace-go/v2/ddtrace/tracer"
+	ddprofiler "github.com/DataDog/dd-trace-go/v2/profiler"
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+type stubStatsdClient struct{ statsd.NoOpClient }
 
 func TestInitNoop(t *testing.T) {
 	InitNoop()
@@ -30,6 +33,72 @@ func TestInit(t *testing.T) {
 		StatsdNamespace: "test.",
 	})
 	defer Stop()
+}
+
+func TestInit_StatsdFallbackOnError(t *testing.T) {
+	origTracerStart := tracerStart
+	origProfilerStart := profilerStart
+	origNewStatsdClient := newStatsdClient
+	origStatsdClient := statsdClient
+	defer func() {
+		tracerStart = origTracerStart
+		profilerStart = origProfilerStart
+		newStatsdClient = origNewStatsdClient
+		statsdClient = origStatsdClient
+	}()
+
+	tracerCalled := false
+	profilerCalled := false
+	tracerStart = func(opts ...ddtracer.StartOption) error {
+		tracerCalled = true
+		return nil
+	}
+	profilerStart = func(opts ...ddprofiler.Option) error {
+		profilerCalled = true
+		return nil
+	}
+	newStatsdClient = func(addr string, opts ...statsd.Option) (statsd.ClientInterface, error) {
+		assert.Equal(t, "bad:8125", addr)
+		return nil, errors.New("statsd down")
+	}
+
+	Init(InitConfig{ServiceName: "svc", Env: "test", StatsdAddr: "bad:8125", StatsdNamespace: "test."})
+
+	assert.True(t, tracerCalled)
+	assert.True(t, profilerCalled)
+	_, ok := statsdClient.(*statsd.NoOpClient)
+	assert.True(t, ok)
+	Stop()
+}
+
+func TestInit_TracerAndProfilerFailuresDoNotPreventStatsd(t *testing.T) {
+	origTracerStart := tracerStart
+	origProfilerStart := profilerStart
+	origNewStatsdClient := newStatsdClient
+	origStatsdClient := statsdClient
+	defer func() {
+		tracerStart = origTracerStart
+		profilerStart = origProfilerStart
+		newStatsdClient = origNewStatsdClient
+		statsdClient = origStatsdClient
+	}()
+
+	tracerStart = func(opts ...ddtracer.StartOption) error {
+		return errors.New("tracer failed")
+	}
+	profilerStart = func(opts ...ddprofiler.Option) error {
+		return errors.New("profiler failed")
+	}
+	expectedClient := &stubStatsdClient{}
+	newStatsdClient = func(addr string, opts ...statsd.Option) (statsd.ClientInterface, error) {
+		assert.Equal(t, "localhost:8125", addr)
+		return expectedClient, nil
+	}
+
+	Init(InitConfig{ServiceName: "svc", Env: "test", StatsdAddr: "localhost:8125", StatsdNamespace: "test."})
+
+	assert.Same(t, expectedClient, statsdClient)
+	Stop()
 }
 
 func TestStop(t *testing.T) {

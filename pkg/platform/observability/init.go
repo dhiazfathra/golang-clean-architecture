@@ -12,6 +12,18 @@ import (
 
 var statsdClient statsd.ClientInterface
 
+var tracerStart = func(opts ...ddtracer.StartOption) error {
+	return ddtracer.Start(opts...)
+}
+
+var profilerStart = func(opts ...ddprofiler.Option) error {
+	return ddprofiler.Start(opts...)
+}
+
+var newStatsdClient = func(addr string, opts ...statsd.Option) (statsd.ClientInterface, error) {
+	return statsd.New(addr, opts...)
+}
+
 // InitConfig holds observability initialisation parameters.
 type InitConfig struct {
 	ServiceName     string
@@ -23,7 +35,7 @@ type InitConfig struct {
 // Init starts the Datadog tracer, continuous profiler, StatsD, and runtime metrics.
 // Call once at the very top of main(), before any other initialisation.
 func Init(cfg InitConfig) {
-	if err := ddtracer.Start(
+	if err := tracerStart(
 		ddtracer.WithService(cfg.ServiceName),
 		ddtracer.WithEnv(cfg.Env),
 		ddtracer.WithRuntimeMetrics(),
@@ -31,7 +43,7 @@ func Init(cfg InitConfig) {
 		slog.Warn("observability: tracer start failed", "error", err)
 	}
 
-	if err := ddprofiler.Start(
+	if err := profilerStart(
 		ddprofiler.WithService(cfg.ServiceName),
 		ddprofiler.WithEnv(cfg.Env),
 		ddprofiler.CPUDuration(60*time.Second),
@@ -45,7 +57,7 @@ func Init(cfg InitConfig) {
 	}
 
 	var err error
-	statsdClient, err = statsd.New(cfg.StatsdAddr,
+	statsdClient, err = newStatsdClient(cfg.StatsdAddr,
 		statsd.WithNamespace(cfg.StatsdNamespace),
 		statsd.WithTags([]string{"service:" + cfg.ServiceName, "env:" + cfg.Env}),
 	)

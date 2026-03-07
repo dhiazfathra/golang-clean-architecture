@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -313,5 +314,82 @@ func TestMustConnectPanic(t *testing.T) {
 	assert.Panics(t, func() {
 		MustConnect("postgres://invalid:invalid@localhost:1/nonexistent?sslmode=disable&connect_timeout=1",
 			PoolConfig{MaxOpenConns: 1, MaxIdleConns: 1, ServiceName: "test"})
+	})
+}
+
+func TestMustConnectSuccess(t *testing.T) {
+	origOpen := openDB
+	origRegister := registerDriver
+	defer func() {
+		openDB = origOpen
+		registerDriver = origRegister
+	}()
+
+	registerOnce = sync.Once{}
+	registered := false
+	registerDriver = func(pool PoolConfig) {
+		registered = true
+		assert.Equal(t, "test-db", pool.ServiceName)
+	}
+	openDB = func(driverName, dsn string) (*sqlx.DB, error) {
+		assert.Equal(t, "postgres-traced", driverName)
+		assert.Equal(t, "sqlmock-success", dsn)
+		rawDB, mock, err := sqlmock.NewWithDSN("sqlmock-success")
+		require.NoError(t, err)
+		mock.ExpectPing()
+		t.Cleanup(func() { _ = rawDB.Close() })
+		return sqlx.NewDb(rawDB, "sqlmock"), nil
+	}
+
+	db := MustConnect("sqlmock-success", PoolConfig{MaxOpenConns: 7, MaxIdleConns: 3, ServiceName: "test-db"})
+	require.NotNil(t, db)
+	assert.True(t, registered)
+	assert.Equal(t, 7, db.Stats().MaxOpenConnections)
+	assert.LessOrEqual(t, db.Stats().Idle, 3)
+}
+
+func TestMustConnectPanicOnOpenError(t *testing.T) {
+	origOpen := openDB
+	origRegister := registerDriver
+	defer func() {
+		openDB = origOpen
+		registerDriver = origRegister
+	}()
+
+	registerOnce = sync.Once{}
+	registerDriver = func(pool PoolConfig) {
+		assert.Equal(t, "test", pool.ServiceName)
+	}
+	openDB = func(driverName, dsn string) (*sqlx.DB, error) {
+		return nil, errors.New("open fail")
+	}
+
+	assert.PanicsWithValue(t, "database: open: open fail", func() {
+		MustConnect("bad-dsn", PoolConfig{MaxOpenConns: 1, MaxIdleConns: 1, ServiceName: "test"})
+	})
+}
+
+func TestMustConnectPanicOnPingError(t *testing.T) {
+	origOpen := openDB
+	origRegister := registerDriver
+	defer func() {
+		openDB = origOpen
+		registerDriver = origRegister
+	}()
+
+	registerOnce = sync.Once{}
+	registerDriver = func(pool PoolConfig) {
+		assert.Equal(t, "test", pool.ServiceName)
+	}
+	openDB = func(driverName, dsn string) (*sqlx.DB, error) {
+		rawDB, mock, err := sqlmock.New(sqlmock.MonitorPingsOption(true))
+		require.NoError(t, err)
+		mock.ExpectPing().WillReturnError(errors.New("ping fail"))
+		t.Cleanup(func() { _ = rawDB.Close() })
+		return sqlx.NewDb(rawDB, "sqlmock"), nil
+	}
+
+	assert.PanicsWithValue(t, "database: ping: ping fail", func() {
+		MustConnect("ping-dsn", PoolConfig{MaxOpenConns: 1, MaxIdleConns: 1, ServiceName: "test"})
 	})
 }

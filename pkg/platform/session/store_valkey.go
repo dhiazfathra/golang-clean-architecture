@@ -16,6 +16,10 @@ import (
 
 type valkeyStore struct{ client valkey.Client }
 
+var randRead = rand.Read
+
+var jsonMarshal = json.Marshal
+
 func NewValkeyStore(client valkey.Client) SessionStore {
 	return &valkeyStore{client: client}
 }
@@ -30,7 +34,7 @@ func MustConnectValkey(url string) valkey.Client {
 
 func (s *valkeyStore) Create(ctx context.Context, userID string, ttl time.Duration, meta map[string]string) (*Session, error) {
 	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
+	if _, err := randRead(b); err != nil {
 		return nil, fmt.Errorf("session: generate id: %w", err)
 	}
 	sess := &Session{
@@ -40,7 +44,7 @@ func (s *valkeyStore) Create(ctx context.Context, userID string, ttl time.Durati
 		ExpiresAt: time.Now().UTC().Add(ttl),
 		Metadata:  meta,
 	}
-	data, err := json.Marshal(sess)
+	data, err := jsonMarshal(sess)
 	if err != nil {
 		return nil, fmt.Errorf("session: marshal: %w", err)
 	}

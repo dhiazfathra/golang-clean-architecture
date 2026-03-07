@@ -19,16 +19,24 @@ type PoolConfig struct {
 
 var registerOnce sync.Once
 
+var registerDriver = func(pool PoolConfig) {
+	sqltrace.Register("postgres-traced", &pq.Driver{},
+		sqltrace.WithService(pool.ServiceName),
+		sqltrace.WithDBMPropagation(ddtracer.DBMPropagationModeFull),
+	)
+}
+
+var openDB = func(driverName, dsn string) (*sqlx.DB, error) {
+	return sqlx.Open(driverName, dsn)
+}
+
 // MustConnect connects using the traced postgres driver.
 func MustConnect(dsn string, pool PoolConfig) *sqlx.DB {
 	registerOnce.Do(func() {
-		sqltrace.Register("postgres-traced", &pq.Driver{},
-			sqltrace.WithService(pool.ServiceName),
-			sqltrace.WithDBMPropagation(ddtracer.DBMPropagationModeFull),
-		)
+		registerDriver(pool)
 	})
 
-	db, err := sqlx.Open("postgres-traced", dsn)
+	db, err := openDB("postgres-traced", dsn)
 	if err != nil {
 		panic(fmt.Sprintf("database: open: %v", err))
 	}

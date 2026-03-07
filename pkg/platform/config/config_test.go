@@ -1,7 +1,10 @@
 package config
 
 import (
+	"errors"
+	"io"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -219,6 +222,78 @@ func TestMustLoad_PanicsOnInvalidConfig(t *testing.T) {
 	assert.Panics(t, func() { MustLoad() })
 }
 
+func TestMustLoad_PanicsOnOpenRootError(t *testing.T) {
+	origOpenRoot := openRoot
+	defer func() { openRoot = origOpenRoot }()
+	openRoot = func(string) (*os.Root, error) {
+		return nil, errors.New("root open fail")
+	}
+
+	t.Setenv("CONFIG_FILE", "config.yaml")
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
+	t.Setenv("VALKEY_URL", "localhost:6379")
+
+	assert.Panics(t, func() { MustLoad() })
+}
+
+func TestMustLoad_PanicsOnReadFileError(t *testing.T) {
+	origReadAll := readAll
+	defer func() { readAll = origReadAll }()
+	readAll = func(_ io.Reader) ([]byte, error) {
+		return nil, errors.New("read fail")
+	}
+
+	const configFileName = "config-read-fail.yaml"
+	err := os.WriteFile(configFileName, []byte("listen_addr: ':8080'"), 0600)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Remove(configFileName) })
+
+	t.Setenv("CONFIG_FILE", configFileName)
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
+	t.Setenv("VALKEY_URL", "localhost:6379")
+
+	assert.Panics(t, func() { MustLoad() })
+}
+
+func TestMustLoad_PanicsOnYAMLUnmarshalError(t *testing.T) {
+	origYAMLUnmarshal := yamlUnmarshal
+	defer func() { yamlUnmarshal = origYAMLUnmarshal }()
+	yamlUnmarshal = func([]byte, any) error {
+		return errors.New("forced yaml failure")
+	}
+
+	const configFileName = "config-yaml-fail.yaml"
+	err := os.WriteFile(configFileName, []byte("listen_addr: ':8080'"), 0600)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = os.Remove(configFileName) })
+
+	t.Setenv("CONFIG_FILE", configFileName)
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
+	t.Setenv("VALKEY_URL", "localhost:6379")
+
+	assert.Panics(t, func() { MustLoad() })
+}
+
+func TestMustLoad_PanicsOnMissingYAMLFile(t *testing.T) {
+	t.Setenv("CONFIG_FILE", filepath.Join(t.TempDir(), "missing.yaml"))
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
+	t.Setenv("VALKEY_URL", "localhost:6379")
+
+	assert.Panics(t, func() { MustLoad() })
+}
+
+func TestMustLoad_PanicsOnMalformedYAML(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	err := os.WriteFile(path, []byte("listen_addr: [unterminated"), 0600)
+	require.NoError(t, err)
+
+	t.Setenv("CONFIG_FILE", path)
+	t.Setenv("DATABASE_URL", "postgres://x@localhost/x")
+	t.Setenv("VALKEY_URL", "localhost:6379")
+
+	assert.Panics(t, func() { MustLoad() })
+}
+
 func TestOverrideStr(t *testing.T) {
 	t.Setenv("TEST_KEY", "value")
 	target := "default"
@@ -264,4 +339,14 @@ func TestGetOr(t *testing.T) {
 	t.Setenv("EXISTING_KEY", "val")
 	assert.Equal(t, "val", GetOr("EXISTING_KEY", "fallback"))
 	assert.Equal(t, "fallback", GetOr("MISSING_KEY_XYZ", "fallback"))
+}
+
+func TestMustGet(t *testing.T) {
+	t.Setenv("REQUIRED_KEY", "present")
+	assert.Equal(t, "present", MustGet("REQUIRED_KEY"))
+}
+
+func TestMustGet_PanicsWhenMissing(t *testing.T) {
+	t.Setenv("REQUIRED_KEY_MISSING", "")
+	assert.Panics(t, func() { MustGet("REQUIRED_KEY_MISSING") })
 }

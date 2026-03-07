@@ -12,6 +12,12 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+var openRoot = os.OpenRoot
+
+var readAll = io.ReadAll
+
+var yamlUnmarshal = yaml.Unmarshal
+
 type Config struct {
 	// Application
 	ListenAddr  string `yaml:"listen_addr"`
@@ -76,7 +82,7 @@ func loadYAML(cfg *Config) {
 	}
 
 	// Scopes reads to a fixed directory to avoid G703/G304 — path traversal
-	root, err := os.OpenRoot(".")
+	root, err := openRoot(".")
 	if err != nil {
 		panic(fmt.Sprintf("config: open root: %v", err))
 	}
@@ -88,12 +94,12 @@ func loadYAML(cfg *Config) {
 	}
 	defer f.Close()
 
-	data, err := io.ReadAll(f)
+	data, err := readAll(f)
 	if err != nil {
 		panic(fmt.Sprintf("config: read file: %v", err))
 	}
 
-	if err := yaml.Unmarshal(data, cfg); err != nil {
+	if err := yamlUnmarshal(data, cfg); err != nil {
 		panic(fmt.Sprintf("config: parse yaml: %v", err))
 	}
 }
