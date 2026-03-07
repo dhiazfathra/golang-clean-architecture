@@ -18,7 +18,7 @@ A Go backend demonstrating a **modular monolith** with **event sourcing**, **RBA
 | State persistence | Event sourcing — append-only events, CQRS read models |
 | HTTP | Echo v4 |
 | Database | PostgreSQL via sqlx (no ORM) |
-| Session auth | Valkey (Redis-compatible) cookie sessions |
+| Session auth | Valkey (Redis-compatible) cookie sessions + opaque Bearer tokens |
 | RBAC | Module + action + field-level permissions; event-sourced role store |
 | Primary keys | Snowflake `int64` (no UUID, no SERIAL) |
 | Observability | Datadog APM, logs, metrics, profiler, DBM, error tracking |
@@ -137,9 +137,14 @@ The `kvstore` package provides a reusable 3-tier caching layer used by both feat
 
 Future config/settings modules should compose `kvstore.Store` to get the same caching behaviour without duplication.
 
-### Session Auth
+### Authentication
 
-Every protected route is guarded by `session.RequireSession`, which reads a signed session cookie, validates it against Valkey, and stores `userID` in the Echo context. Handlers retrieve it via `session.UserID(c)`.
+The server supports two authentication schemes:
+
+- **Session cookies** — `session.RequireSession` reads a `session_id` cookie, validates it against Valkey, and stores `userID` in the Echo context.
+- **Opaque Bearer tokens** — `session.RequireMultiAuth` accepts either a `Bearer <token>` header or a session cookie. Tokens are SHA-256 hashed and looked up via the `kvstore.Store` 3-tier cache.
+
+Feature flag and environment variable APIs accept both schemes (multi-auth). Token management endpoints require session auth only. Handlers retrieve the user via `session.UserID(c)` and the auth method via `session.AuthMethod(c)`.
 
 ### RBAC
 
@@ -226,26 +231,36 @@ All API endpoints are prefixed with `/api/v1`. Health probes remain at root for 
 | DELETE | `/api/v1/admin/roles/:id/permissions/:perm` | `rbac:manage` |
 | GET | `/api/v1/admin/users/:id/roles` | `rbac:manage` |
 
-### Feature Flags (admin)
+### API Tokens (admin, session-only)
 
 | Method | Path | Permission |
 |--------|------|------------|
-| GET | `/api/v1/admin/feature-flags` | `featureflag:manage` |
-| POST | `/api/v1/admin/feature-flags` | `featureflag:manage` |
-| PATCH | `/api/v1/admin/feature-flags/:key` | `featureflag:manage` |
-| DELETE | `/api/v1/admin/feature-flags/:key` | `featureflag:manage` |
+| POST | `/api/v1/admin/api-tokens` | `apitoken:manage` |
+| GET | `/api/v1/admin/api-tokens` | `apitoken:manage` |
+| DELETE | `/api/v1/admin/api-tokens/:id` | `apitoken:manage` |
+
+Opaque API tokens for programmatic access (CI/CD, SDKs, CLI tools). Tokens are `gca_`-prefixed (golang-clean-architecture) for easy identification, SHA-256 hashed at rest, and cached via `kvstore.Store`. The raw token is returned only at creation time. Token management requires session auth; the tokens themselves can be used as `Bearer` auth on feature flag and env var endpoints.
+
+### Feature Flags (admin, multi-auth)
+
+| Method | Path | Auth | Permission |
+|--------|------|------|------------|
+| GET | `/api/v1/admin/feature-flags` | session or token | `featureflag:manage` |
+| POST | `/api/v1/admin/feature-flags` | session or token | `featureflag:manage` |
+| PATCH | `/api/v1/admin/feature-flags/:key` | session or token | `featureflag:manage` |
+| DELETE | `/api/v1/admin/feature-flags/:key` | session or token | `featureflag:manage` |
 
 Feature flags use the shared `kvstore.Store` 3-tier cache: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**. Use `featureflag.RequireFlag(svc, "key")` middleware to gate any route behind a flag.
 
-### Environment Variables
+### Environment Variables (multi-auth)
 
-| Method | Path | Permission |
-|--------|------|------------|
-| POST | `/api/v1/envs` | `envvar:manage` |
-| GET | `/api/v1/envs/:platform/:key` | `envvar:manage` |
-| GET | `/api/v1/envs/:platform` | `envvar:manage` |
-| PUT | `/api/v1/envs/:platform/:key` | `envvar:manage` |
-| DELETE | `/api/v1/envs/:platform/:key` | `envvar:manage` |
+| Method | Path | Auth | Permission |
+|--------|------|------|------------|
+| POST | `/api/v1/envs` | session or token | `envvar:manage` |
+| GET | `/api/v1/envs/:platform/:key` | session or token | `envvar:manage` |
+| GET | `/api/v1/envs/:platform` | session or token | `envvar:manage` |
+| PUT | `/api/v1/envs/:platform/:key` | session or token | `envvar:manage` |
+| DELETE | `/api/v1/envs/:platform/:key` | session or token | `envvar:manage` |
 
 Dynamic environment variables scoped by platform (`mobile`, `web`, `be`, etc.). Uses the same shared `kvstore.Store` 3-tier cache as feature flags: **sync.Map (in-process) → Valkey (shared) → Postgres (source of truth)**.
 
@@ -286,6 +301,7 @@ All values can be set via environment variables or a YAML file (`CONFIG_FILE=pat
 | `SNOWFLAKE_NODE_ID` | `1` | Snowflake node ID (1–1023) |
 | `FEATURE_FLAG_REFRESH_TTL` | `30s` | Feature flag cache refresh interval (min `1s`) |
 | `ENV_VAR_REFRESH_TTL` | `30s` | Dynamic env var cache refresh interval (min `1s`) |
+| `API_TOKEN_REFRESH_TTL` | `30s` | API token cache refresh interval (min `1s`) |
 | `DD_API_KEY` | — | Datadog API key (optional; disables APM if unset) |
 | `DD_ENV` | — | Datadog environment tag |
 | `DD_SERVICE` | — | Datadog service name |

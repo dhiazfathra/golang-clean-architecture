@@ -16,6 +16,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/auth"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/order"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/apitoken"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/docs"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/envvar"
@@ -93,6 +94,7 @@ type RouterDeps struct {
 	OrderSvc     *order.Service
 	FFSvc        *featureflag.Service
 	EVSvc        *envvar.Service
+	TokenSvc     *apitoken.Service
 }
 
 func setupRouter(deps RouterDeps) *echo.Echo {
@@ -115,11 +117,20 @@ func setupRouter(deps RouterDeps) *echo.Echo {
 	user.RegisterAdminRoutes(adminGroup, userHandler, deps.RBACSvc)
 	order.RegisterRoutes(protected, order.NewHandler(deps.OrderSvc), deps.RBACSvc)
 
+	// Multi-auth group: accepts both session cookies and Bearer tokens.
+	multiAuth := v1.Group("")
+	multiAuth.Use(session.RequireMultiAuth(deps.SessionStore, deps.TokenSvc))
+	multiAuthAdmin := multiAuth.Group("/admin")
+
 	ffHandler := featureflag.NewHandler(deps.FFSvc)
-	featureflag.RegisterAdminRoutes(adminGroup, ffHandler, deps.RBACSvc)
+	featureflag.RegisterAdminRoutes(multiAuthAdmin, ffHandler, deps.RBACSvc)
 
 	evHandler := envvar.NewHandler(deps.EVSvc)
-	envvar.RegisterRoutes(protected, evHandler, deps.RBACSvc)
+	envvar.RegisterRoutes(multiAuth, evHandler, deps.RBACSvc)
+
+	// API token management — session-only (under original adminGroup).
+	tokenHandler := apitoken.NewHandler(deps.TokenSvc)
+	apitoken.RegisterRoutes(adminGroup, tokenHandler, deps.RBACSvc)
 
 	// Health probes — on root Echo instance, no auth middleware.
 	healthHandler := health.NewHandler(deps.DB, deps.VK)

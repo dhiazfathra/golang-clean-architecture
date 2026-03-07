@@ -40,6 +40,9 @@ type Config struct {
 
 	// Env Vars
 	EnvVarRefreshTTL time.Duration `yaml:"env_var_refresh_ttl"`
+
+	// API Tokens
+	APITokenRefreshTTL time.Duration `yaml:"api_token_refresh_ttl"`
 }
 
 func MustLoad() *Config {
@@ -54,6 +57,7 @@ func MustLoad() *Config {
 		StatsdNamespace:       "golang_clean_arch.",
 		FeatureFlagRefreshTTL: 30 * time.Second,
 		EnvVarRefreshTTL:      30 * time.Second,
+		APITokenRefreshTTL:    30 * time.Second,
 	}
 
 	loadYAML(cfg)
@@ -109,6 +113,7 @@ func applyEnvOverrides(cfg *Config) {
 	overrideDuration("SESSION_TTL", &cfg.SessionTTL)
 	overrideDuration("FEATURE_FLAG_REFRESH_TTL", &cfg.FeatureFlagRefreshTTL)
 	overrideDuration("ENV_VAR_REFRESH_TTL", &cfg.EnvVarRefreshTTL)
+	overrideDuration("API_TOKEN_REFRESH_TTL", &cfg.APITokenRefreshTTL)
 }
 
 func overrideStr(key string, target *string) {
@@ -159,6 +164,9 @@ func (c *Config) validate() error {
 	}
 	if c.EnvVarRefreshTTL < time.Second {
 		errs = append(errs, "ENV_VAR_REFRESH_TTL must be >= 1s")
+	}
+	if c.APITokenRefreshTTL < time.Second {
+		errs = append(errs, "API_TOKEN_REFRESH_TTL must be >= 1s")
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("validation:\n  - %s", strings.Join(errs, "\n  - "))

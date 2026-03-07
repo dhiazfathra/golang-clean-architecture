@@ -10,6 +10,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/auth"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/order"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/apitoken"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/envvar"
@@ -81,6 +82,10 @@ func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 	evSvc := envvar.NewService(evRepo, vk, cfg.EnvVarRefreshTTL)
 	evSvc.StartRefresh(ctx)
 
+	tokenRepo := apitoken.NewRepository(db)
+	tokenSvc := apitoken.NewService(tokenRepo, vk, cfg.APITokenRefreshTTL)
+	tokenSvc.StartRefresh(ctx)
+
 	if err := seeder.Seed(ctx, rbacSvc, &seederUserAdapter{userSvc},
 		cfg.SeedSuperAdminPassword, cfg.SeedDefaultModulePassword); err != nil {
 		cancel()
@@ -108,5 +113,6 @@ func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 		OrderSvc:     orderSvc,
 		FFSvc:        ffSvc,
 		EVSvc:        evSvc,
+		TokenSvc:     tokenSvc,
 	}, cleanup, nil
 }

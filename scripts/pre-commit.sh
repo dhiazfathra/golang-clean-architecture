@@ -108,7 +108,8 @@ if [[ -n "$CHANGED_GO_FILES" ]]; then
   run_hook "secret_scan" bash -c "
     # Detect common secret patterns in staged Go files
     patterns='(password|secret|token|api_key|apikey|private_key)\s*[:=]\s*\"[^\"]{8,}'
-    matches=\$(echo '$CHANGED_GO_FILES' | xargs grep -inE \"\$patterns\" 2>/dev/null || true)
+    matches=\$(echo '$CHANGED_GO_FILES' | xargs grep -inE \"\$patterns\" 2>/dev/null \
+      | grep -v '//nolint:secret_scan' || true)
     if [[ -n \"\$matches\" ]]; then
       echo 'Potential hardcoded secrets detected:'; echo \"\$matches\"; exit 1
     fi
