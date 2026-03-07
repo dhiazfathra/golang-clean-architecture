@@ -9,23 +9,15 @@ import (
 	"time"
 
 	sqlmock "github.com/DATA-DOG/go-sqlmock"
-	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
 func init() {
 	observability.InitNoop()
-}
-
-func newMockDB(t *testing.T) (*sqlx.DB, sqlmock.Sqlmock) {
-	t.Helper()
-	rawDB, mock, err := sqlmock.New(sqlmock.QueryMatcherOption(sqlmock.QueryMatcherRegexp))
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = rawDB.Close() })
-	return sqlx.NewDb(rawDB, "sqlmock"), mock
 }
 
 const (
@@ -158,7 +150,7 @@ func (u unmarshalableEvent) MarshalJSON() ([]byte, error) {
 // --- PgStore ---
 
 func TestPgStoreAppend(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	mock.ExpectBegin()
@@ -172,7 +164,7 @@ func TestPgStoreAppend(t *testing.T) {
 }
 
 func TestPgStoreAppendMarshalEventError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	mock.ExpectBegin()
@@ -185,7 +177,7 @@ func TestPgStoreAppendMarshalEventError(t *testing.T) {
 }
 
 func TestPgStoreAppendBeginError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	mock.ExpectBegin().WillReturnError(errors.New("begin fail"))
@@ -196,7 +188,7 @@ func TestPgStoreAppendBeginError(t *testing.T) {
 }
 
 func TestPgStoreAppendExecError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	mock.ExpectBegin()
@@ -209,7 +201,7 @@ func TestPgStoreAppendExecError(t *testing.T) {
 }
 
 func TestPgStoreAppendCommitError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	mock.ExpectBegin()
@@ -221,7 +213,7 @@ func TestPgStoreAppendCommitError(t *testing.T) {
 }
 
 func TestPgStoreAppendEmpty(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	mock.ExpectBegin()
@@ -233,7 +225,7 @@ func TestPgStoreAppendEmpty(t *testing.T) {
 
 func TestPgStoreLoad(t *testing.T) {
 	Register[testEvent]("LoadTest")
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	data, _ := json.Marshal(testEvent{Name: "loaded"})
@@ -251,7 +243,7 @@ func TestPgStoreLoad(t *testing.T) {
 }
 
 func TestPgStoreLoadErrNoRows(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	mock.ExpectQuery(qSelectEvents).
@@ -264,7 +256,7 @@ func TestPgStoreLoadErrNoRows(t *testing.T) {
 }
 
 func TestPgStoreLoadQueryError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	mock.ExpectQuery(qSelectEvents).
@@ -276,7 +268,7 @@ func TestPgStoreLoadQueryError(t *testing.T) {
 }
 
 func TestPgStoreLoadScanError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	// Use wrong number of columns to trigger scan error
@@ -290,7 +282,7 @@ func TestPgStoreLoadScanError(t *testing.T) {
 }
 
 func TestPgStoreLoadDeserialiseError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"}).
@@ -305,7 +297,7 @@ func TestPgStoreLoadDeserialiseError(t *testing.T) {
 
 func TestPgStoreLoadRowsErr(t *testing.T) {
 	Register[testEvent]("RowsErrEvent")
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
 	data, _ := json.Marshal(testEvent{Name: "x"})
@@ -324,14 +316,14 @@ func TestPgStoreLoadRowsErr(t *testing.T) {
 // --- SnapshotStore ---
 
 func TestNewSnapshotStore(t *testing.T) {
-	db, _ := newMockDB(t)
+	db, _ := testutil.NewMockDB(t)
 	s := NewSnapshotStore(db)
 	assert.NotNil(t, s)
 	assert.Equal(t, defaultSnapshotFrequency, s.frequency)
 }
 
 func TestSnapshotSaveSkipsNonMultiple(t *testing.T) {
-	db, _ := newMockDB(t)
+	db, _ := testutil.NewMockDB(t)
 	s := NewSnapshotStore(db)
 
 	agg := New("id1", testApply)
@@ -342,7 +334,7 @@ func TestSnapshotSaveSkipsNonMultiple(t *testing.T) {
 }
 
 func TestSnapshotSaveAtFrequency(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	s := NewSnapshotStore(db)
 
 	agg := New("id1", testApply)
@@ -356,7 +348,7 @@ func TestSnapshotSaveAtFrequency(t *testing.T) {
 }
 
 func TestSnapshotSaveExecError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	s := NewSnapshotStore(db)
 
 	agg := New("id1", testApply)
@@ -369,7 +361,7 @@ func TestSnapshotSaveExecError(t *testing.T) {
 }
 
 func TestSnapshotSaveMarshalError(t *testing.T) {
-	db, _ := newMockDB(t)
+	db, _ := testutil.NewMockDB(t)
 	s := NewSnapshotStore(db)
 
 	// Use a state type that can't be marshaled
@@ -386,7 +378,7 @@ func TestSnapshotSaveMarshalError(t *testing.T) {
 }
 
 func TestSnapshotLoadFound(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	s := NewSnapshotStore(db)
 
 	stateData, _ := json.Marshal(testState{Count: 42})
@@ -403,7 +395,7 @@ func TestSnapshotLoadFound(t *testing.T) {
 }
 
 func TestSnapshotLoadNotFound(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	s := NewSnapshotStore(db)
 
 	mock.ExpectQuery("SELECT version, data FROM snapshots").
@@ -416,7 +408,7 @@ func TestSnapshotLoadNotFound(t *testing.T) {
 }
 
 func TestSnapshotLoadUnmarshalError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	s := NewSnapshotStore(db)
 
 	mock.ExpectQuery("SELECT version, data FROM snapshots").
@@ -439,7 +431,7 @@ func (m *mockProjector) Name() string                                  { return 
 func (m *mockProjector) Handle(ctx context.Context, event Event) error { return m.handler(ctx, event) }
 
 func TestNewProjectionRunner(t *testing.T) {
-	db, _ := newMockDB(t)
+	db, _ := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 	assert.NotNil(t, r)
@@ -447,7 +439,7 @@ func TestNewProjectionRunner(t *testing.T) {
 }
 
 func TestProjectionRunnerRegister(t *testing.T) {
-	db, _ := newMockDB(t)
+	db, _ := testutil.NewMockDB(t)
 	r := NewProjectionRunner(db, NewPgStore(db))
 
 	p := &mockProjector{name: "test-proj"}
@@ -456,7 +448,7 @@ func TestProjectionRunnerRegister(t *testing.T) {
 }
 
 func TestProjectionRunnerStartAndCancel(t *testing.T) {
-	db, _ := newMockDB(t)
+	db, _ := testutil.NewMockDB(t)
 	r := NewProjectionRunner(db, NewPgStore(db))
 	r.interval = 10 * time.Millisecond
 
@@ -472,7 +464,7 @@ func TestProjectionRunnerStartAndCancel(t *testing.T) {
 
 func TestProjectionRunnerPollFirstRun(t *testing.T) {
 	Register[testEvent]("PollEvent")
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 
@@ -505,7 +497,7 @@ func TestProjectionRunnerPollFirstRun(t *testing.T) {
 }
 
 func TestProjectionRunnerPollExistingCursor(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 
@@ -529,7 +521,7 @@ func TestProjectionRunnerPollExistingCursor(t *testing.T) {
 }
 
 func TestProjectionRunnerPollInitCursorError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 
@@ -545,7 +537,7 @@ func TestProjectionRunnerPollInitCursorError(t *testing.T) {
 }
 
 func TestProjectionRunnerPollQueryError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 
@@ -563,7 +555,7 @@ func TestProjectionRunnerPollQueryError(t *testing.T) {
 
 func TestProjectionRunnerPollHandleError(t *testing.T) {
 	Register[testEvent]("HandleErr")
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 
@@ -586,7 +578,7 @@ func TestProjectionRunnerPollHandleError(t *testing.T) {
 }
 
 func TestProjectionRunnerPollUnknownEventSkipped(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 
@@ -610,7 +602,7 @@ func TestProjectionRunnerPollUnknownEventSkipped(t *testing.T) {
 }
 
 func TestProjectionRunnerPollScanError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 
@@ -629,7 +621,7 @@ func TestProjectionRunnerPollScanError(t *testing.T) {
 
 func TestProjectionRunnerPollRowsErr(t *testing.T) {
 	Register[testEvent]("PollRowsErr")
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 
@@ -653,7 +645,7 @@ func TestProjectionRunnerPollRowsErr(t *testing.T) {
 }
 
 func TestProjectionRunnerPollUpdateCursorError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
 

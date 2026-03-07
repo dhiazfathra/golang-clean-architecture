@@ -9,21 +9,11 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
-	"github.com/jmoiron/sqlx"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// helpers
-
-func newMockDB(t *testing.T) (*sqlx.DB, sqlmock.Sqlmock) {
-	t.Helper()
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
-	return sqlx.NewDb(db, "postgres"), mock
-}
 
 var (
 	now          = time.Now()
@@ -43,7 +33,7 @@ func mockPermRow(id, roleID int64, module, action string) *sqlmock.Rows {
 // --- NewPgReadRepository ---
 
 func TestNewPgReadRepository(t *testing.T) {
-	db, _ := newMockDB(t)
+	db, _ := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 	assert.NotNil(t, repo)
 }
@@ -51,7 +41,7 @@ func TestNewPgReadRepository(t *testing.T) {
 // --- GetRoleByID ---
 
 func TestGetRoleByID_Success(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM roles_read WHERE id = $1`)).
@@ -65,7 +55,7 @@ func TestGetRoleByID_Success(t *testing.T) {
 }
 
 func TestGetRoleByID_NotFound(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM roles_read WHERE id = $1`)).
@@ -79,7 +69,7 @@ func TestGetRoleByID_NotFound(t *testing.T) {
 }
 
 func TestGetRoleByID_DBError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM roles_read WHERE id = $1`)).
@@ -95,7 +85,7 @@ func TestGetRoleByID_DBError(t *testing.T) {
 // --- GetRoleByName ---
 
 func TestGetRoleByName_Success(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM roles_read WHERE name = $1`)).
@@ -109,7 +99,7 @@ func TestGetRoleByName_Success(t *testing.T) {
 }
 
 func TestGetRoleByName_NotFound(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM roles_read WHERE name = $1`)).
@@ -123,7 +113,7 @@ func TestGetRoleByName_NotFound(t *testing.T) {
 }
 
 func TestGetRoleByName_DBError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM roles_read WHERE name = $1`)).
@@ -139,7 +129,7 @@ func TestGetRoleByName_DBError(t *testing.T) {
 // --- ListRoles ---
 
 func TestListRoles_Success(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM roles_read ORDER BY name ASC`)).
@@ -155,7 +145,7 @@ func TestListRoles_Success(t *testing.T) {
 }
 
 func TestListRoles_Empty(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM roles_read ORDER BY name ASC`)).
@@ -168,7 +158,7 @@ func TestListRoles_Empty(t *testing.T) {
 }
 
 func TestListRoles_DBError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM roles_read ORDER BY name ASC`)).
@@ -183,7 +173,7 @@ func TestListRoles_DBError(t *testing.T) {
 // --- GetPermissionsForRole ---
 
 func TestGetPermissionsForRole_Success(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM permissions_read WHERE role_id = $1`)).
@@ -198,7 +188,7 @@ func TestGetPermissionsForRole_Success(t *testing.T) {
 }
 
 func TestGetPermissionsForRole_Empty(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM permissions_read WHERE role_id = $1`)).
@@ -212,7 +202,7 @@ func TestGetPermissionsForRole_Empty(t *testing.T) {
 }
 
 func TestGetPermissionsForRole_DBError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM permissions_read WHERE role_id = $1`)).
@@ -228,7 +218,7 @@ func TestGetPermissionsForRole_DBError(t *testing.T) {
 // --- GetRolesForUser ---
 
 func TestGetRolesForUser_Success(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM user_roles_read WHERE user_id = $1`)).
@@ -244,7 +234,7 @@ func TestGetRolesForUser_Success(t *testing.T) {
 }
 
 func TestGetRolesForUser_Empty(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM user_roles_read WHERE user_id = $1`)).
@@ -258,7 +248,7 @@ func TestGetRolesForUser_Empty(t *testing.T) {
 }
 
 func TestGetRolesForUser_DBError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockDB(t)
 	repo := rbac.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM user_roles_read WHERE user_id = $1`)).

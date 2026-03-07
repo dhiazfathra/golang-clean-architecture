@@ -10,20 +10,10 @@ import (
 
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
-	"github.com/jmoiron/sqlx"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// helpers
-
-func newMockDB(t *testing.T) (*sqlx.DB, sqlmock.Sqlmock) {
-	t.Helper()
-	db, mock, err := sqlmock.New()
-	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
-	return sqlx.NewDb(db, "postgres"), mock
-}
 
 var (
 	now      = time.Now()
@@ -49,7 +39,7 @@ func mockRows(entries ...[]any) *sqlmock.Rows {
 // --- NewPgReadRepository ---
 
 func TestNewPgReadRepository(t *testing.T) {
-	db, _ := newMockDB(t)
+	db, _ := testutil.NewMockPostgresDB(t)
 	repo := user.NewPgReadRepository(db)
 	assert.NotNil(t, repo)
 }
@@ -57,7 +47,7 @@ func TestNewPgReadRepository(t *testing.T) {
 // --- GetByID ---
 
 func TestGetByID_Success(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockPostgresDB(t)
 	repo := user.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM users_read WHERE id = $1`)).
@@ -71,7 +61,7 @@ func TestGetByID_Success(t *testing.T) {
 }
 
 func TestGetByID_NotFound(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockPostgresDB(t)
 	repo := user.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM users_read WHERE id = $1`)).
@@ -85,7 +75,7 @@ func TestGetByID_NotFound(t *testing.T) {
 }
 
 func TestGetByID_DBError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockPostgresDB(t)
 	repo := user.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM users_read WHERE id = $1`)).
@@ -101,7 +91,7 @@ func TestGetByID_DBError(t *testing.T) {
 // --- GetByEmail ---
 
 func TestGetByEmail_Success(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockPostgresDB(t)
 	repo := user.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM users_read WHERE email = $1`)).
@@ -115,7 +105,7 @@ func TestGetByEmail_Success(t *testing.T) {
 }
 
 func TestGetByEmail_NotFound(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockPostgresDB(t)
 	repo := user.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM users_read WHERE email = $1`)).
@@ -129,7 +119,7 @@ func TestGetByEmail_NotFound(t *testing.T) {
 }
 
 func TestGetByEmail_DBError(t *testing.T) {
-	db, mock := newMockDB(t)
+	db, mock := testutil.NewMockPostgresDB(t)
 	repo := user.NewPgReadRepository(db)
 
 	mock.ExpectQuery(regexp.QuoteMeta(`SELECT * FROM users_read WHERE email = $1`)).
@@ -142,25 +132,6 @@ func TestGetByEmail_DBError(t *testing.T) {
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
-// --- List ---
-
-// listQueryMatcher matches any query containing our base SELECT.
-var listQueryMatcher = sqlmock.QueryMatcherFunc(func(_, actualSQL string) error {
-	matched, _ := regexp.MatchString(`SELECT \* FROM users_read`, actualSQL)
-	if !matched {
-		return errors.New("query does not match")
-	}
-	return nil
-})
-
-func newMockDBWithMatcher(t *testing.T) (*sqlx.DB, sqlmock.Sqlmock) {
-	t.Helper()
-	db, mock, err := sqlmock.NewWithDSN("sqlmock_db_list_"+t.Name(), sqlmock.QueryMatcherOption(listQueryMatcher))
-	require.NoError(t, err)
-	t.Cleanup(func() { db.Close() })
-	return sqlx.NewDb(db, "postgres"), mock
-}
-
 func expectListQueries(mock sqlmock.Sqlmock, count int64, rows *sqlmock.Rows) {
 	mock.ExpectQuery(`SELECT \* FROM users_read`).
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(count))
@@ -169,7 +140,7 @@ func expectListQueries(mock sqlmock.Sqlmock, count int64, rows *sqlmock.Rows) {
 }
 
 func TestList_Success(t *testing.T) {
-	db, mock := newMockDBWithMatcher(t)
+	db, mock := testutil.NewMockDBWithMatcher(t, "users_read")
 	repo := user.NewPgReadRepository(db)
 
 	expectListQueries(mock, 2, mockRows(
@@ -187,7 +158,7 @@ func TestList_Success(t *testing.T) {
 }
 
 func TestList_DBError(t *testing.T) {
-	db, mock := newMockDBWithMatcher(t)
+	db, mock := testutil.NewMockDBWithMatcher(t, "users_read")
 	repo := user.NewPgReadRepository(db)
 
 	mock.ExpectQuery(`SELECT \* FROM users_read`).
@@ -204,7 +175,7 @@ func TestList_AllowedSortFields(t *testing.T) {
 	sortFields := []string{"email", "created_at", "updated_at"}
 	for _, sf := range sortFields {
 		t.Run(sf, func(t *testing.T) {
-			db, mock := newMockDBWithMatcher(t)
+			db, mock := testutil.NewMockDBWithMatcher(t, "users_read")
 			repo := user.NewPgReadRepository(db)
 
 			expectListQueries(mock, 0, sqlmock.NewRows(mockCols))
@@ -219,7 +190,7 @@ func TestList_AllowedSortFields(t *testing.T) {
 }
 
 func TestList_DefaultSort(t *testing.T) {
-	db, mock := newMockDBWithMatcher(t)
+	db, mock := testutil.NewMockDBWithMatcher(t, "users_read")
 	repo := user.NewPgReadRepository(db)
 
 	expectListQueries(mock, 0, sqlmock.NewRows(mockCols))
