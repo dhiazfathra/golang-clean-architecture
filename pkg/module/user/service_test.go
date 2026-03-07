@@ -5,10 +5,18 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/auth"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
+)
+
+const (
+	userTestEmail               = "alice@example.com"
+	repoFailedError             = "repo failed"
+	emailAlreadyRegisteredError = "email already registered"
 )
 
 // --- hand-rolled mocks ---
@@ -123,7 +131,7 @@ func TestCreateUser_DuplicateEmail(t *testing.T) {
 
 	_, err := svc.CreateUser(context.Background(), CreateUserCmd{Email: "alice@example.com", Password: "pass"})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), "email already registered")
+	assert.Contains(t, err.Error(), emailAlreadyRegisteredError)
 }
 
 func TestCreateUser_HashError(t *testing.T) {
@@ -261,6 +269,104 @@ func TestGetByEmail_DelegatesToRepo(t *testing.T) {
 	got, err := svc.GetByEmail(context.Background(), "a@b.com")
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
+}
+
+func TestGetByEmailForAuth(t *testing.T) {
+	tests := []struct {
+		name    string
+		repoFn  func(ctx context.Context, email string) (*UserReadModel, error)
+		want    *auth.UserRecord
+		wantErr error
+	}{
+		{
+			name: "success",
+			repoFn: func(_ context.Context, email string) (*UserReadModel, error) {
+				assert.Equal(t, userTestEmail, email)
+				return &UserReadModel{ID: 42, Email: email, PassHash: "hash", Active: true}, nil
+			},
+			want: &auth.UserRecord{ID: "42", Email: userTestEmail, PassHash: "hash", Active: true},
+		},
+		{
+			name: "repo error",
+			repoFn: func(_ context.Context, _ string) (*UserReadModel, error) {
+				return nil, errors.New(repoFailedError)
+			},
+			wantErr: errors.New(repoFailedError),
+		},
+		{
+			name: "user not found",
+			repoFn: func(_ context.Context, _ string) (*UserReadModel, error) {
+				return nil, nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &mockReadRepo{GetByEmailFn: tt.repoFn}
+			svc := newTestSvc(nil, repo, nil)
+
+			got, err := svc.GetByEmailForAuth(context.Background(), userTestEmail)
+
+			if tt.wantErr != nil {
+				require.EqualError(t, err, tt.wantErr.Error())
+				assert.Nil(t, got)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestGetByEmailForSeeder(t *testing.T) {
+	tests := []struct {
+		name    string
+		repoFn  func(ctx context.Context, email string) (*UserReadModel, error)
+		want    *seeder.UserRecord
+		wantErr error
+	}{
+		{
+			name: "success",
+			repoFn: func(_ context.Context, email string) (*UserReadModel, error) {
+				assert.Equal(t, userTestEmail, email)
+				return &UserReadModel{ID: 42, Email: email}, nil
+			},
+			want: &seeder.UserRecord{ID: "42", Email: userTestEmail},
+		},
+		{
+			name: "repo error",
+			repoFn: func(_ context.Context, _ string) (*UserReadModel, error) {
+				return nil, errors.New(repoFailedError)
+			},
+			wantErr: errors.New(repoFailedError),
+		},
+		{
+			name: "user not found",
+			repoFn: func(_ context.Context, _ string) (*UserReadModel, error) {
+				return nil, nil
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			repo := &mockReadRepo{GetByEmailFn: tt.repoFn}
+			svc := newTestSvc(nil, repo, nil)
+
+			got, err := svc.GetByEmailForSeeder(context.Background(), userTestEmail)
+
+			if tt.wantErr != nil {
+				require.EqualError(t, err, tt.wantErr.Error())
+				assert.Nil(t, got)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+		})
+	}
 }
 
 func TestList_DelegatesToRepo(t *testing.T) {
