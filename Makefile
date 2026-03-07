@@ -138,6 +138,7 @@ cover:
 ## cover-html: open an HTML coverage report in the default browser
 cover-html: cover
 	go tool cover -html=$(COVERAGE_OUT) -o $(COVERAGE_HTML)
+	gcov2lcov -infile=coverage.out -outfile=lcov.info
 	@echo "==> Report written to $(COVERAGE_HTML)"
 	@case "$$(uname -s)" in \
 		Darwin) open $(COVERAGE_HTML) ;; \
