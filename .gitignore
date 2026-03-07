@@ -17,6 +17,7 @@ coverage.*
 *.coverprofile
 profile.cov
 test-report.xml
+lcov.info
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
