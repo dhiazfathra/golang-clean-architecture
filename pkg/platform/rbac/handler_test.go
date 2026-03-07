@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -16,29 +15,13 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
-func rbacEchoCtx(method, target, body string) (echo.Context, *httptest.ResponseRecorder) {
-	e := echo.New()
-	var req *http.Request
-	if body != "" {
-		req = httptest.NewRequest(method, target, strings.NewReader(body))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	} else {
-		req = httptest.NewRequest(method, target, nil)
-	}
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.Set("user_id", "actor_1")
-	c.Set("rbac_field_policy", AllFields())
-	return c, rec
-}
-
 // --- CreateRole handler ---
 
 func TestHandler_CreateRole_OK(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodPost, "/admin/roles",
-		`{"name":"editor","description":"Can edit","permissions":[]}`)
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles",
+		`{"name":"editor","description":"Can edit","permissions":[]}`, AllFields())
 
 	require.NoError(t, h.CreateRole(c))
 	assert.Equal(t, http.StatusCreated, rec.Code)
@@ -47,7 +30,7 @@ func TestHandler_CreateRole_OK(t *testing.T) {
 func TestHandler_CreateRole_EmptyName(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodPost, "/admin/roles", `{"name":""}`)
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles", `{"name":""}`, AllFields())
 
 	require.NoError(t, h.CreateRole(c))
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -62,7 +45,7 @@ func TestHandler_ListRoles_OK(t *testing.T) {
 		},
 	})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodGet, "/admin/roles", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles", "", AllFields())
 
 	require.NoError(t, h.ListRoles(c))
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -81,7 +64,7 @@ func TestHandler_GetRole_Found(t *testing.T) {
 		},
 	})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodGet, "/admin/roles/1", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles/1", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 
@@ -96,7 +79,7 @@ func TestHandler_GetRole_NotFound(t *testing.T) {
 		},
 	})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodGet, "/admin/roles/999", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles/999", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("999")
 
@@ -109,7 +92,7 @@ func TestHandler_GetRole_NotFound(t *testing.T) {
 func TestHandler_DeleteRole_OK(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodDelete, "/admin/roles/1", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 
@@ -122,8 +105,8 @@ func TestHandler_DeleteRole_OK(t *testing.T) {
 func TestHandler_GrantPermission_OK(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodPost, "/admin/roles/1/permissions",
-		`{"module":"orders","action":"read","fields":{"mode":"all"}}`)
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles/1/permissions",
+		`{"module":"orders","action":"read","fields":{"mode":"all"}}`, AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 
@@ -136,7 +119,7 @@ func TestHandler_GrantPermission_OK(t *testing.T) {
 func TestHandler_RevokePermission_OK(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodDelete, "/admin/roles/1/permissions/orders:read", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1/permissions/orders:read", "", AllFields())
 	c.SetParamNames("id", "perm")
 	c.SetParamValues("1", "orders:read")
 
@@ -147,7 +130,7 @@ func TestHandler_RevokePermission_OK(t *testing.T) {
 func TestHandler_RevokePermission_BadPerm(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodDelete, "/admin/roles/1/permissions/bad", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1/permissions/bad", "", AllFields())
 	c.SetParamNames("id", "perm")
 	c.SetParamValues("1", "bad")
 
@@ -164,7 +147,7 @@ func TestHandler_ListUserRoles_OK(t *testing.T) {
 		},
 	})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodGet, "/admin/users/u1/roles", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/users/u1/roles", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("u1")
 

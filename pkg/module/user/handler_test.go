@@ -19,24 +19,6 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
-// echoCtxWithPolicy creates an Echo context with a JSON body (may be empty) and injects
-// the rbac AllFields policy so handler tests bypass RBAC filtering.
-func echoCtxWithPolicy(method, target, body string) (echo.Context, *httptest.ResponseRecorder) {
-	e := echo.New()
-	var req *http.Request
-	if body != "" {
-		req = httptest.NewRequest(method, target, strings.NewReader(body))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	} else {
-		req = httptest.NewRequest(method, target, nil)
-	}
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.Set("user_id", "actor_1")
-	c.Set("rbac_field_policy", rbac.AllFields())
-	return c, rec
-}
-
 // newHandlerWithMocks builds a Handler backed by a real Service with hand-rolled mocks.
 func newHandlerWithMocks(repo ReadRepository, store *mockEventStore) *Handler {
 	if store == nil {
@@ -58,7 +40,7 @@ func TestUserHandler_GetByID_OK(t *testing.T) {
 		},
 	}
 	h := newHandlerWithMocks(repo, nil)
-	c, rec := echoCtxWithPolicy(http.MethodGet, "/users/1", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/users/1", "", rbac.AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 
@@ -75,7 +57,7 @@ func TestUserHandler_GetByID_NotFound(t *testing.T) {
 		},
 	}
 	h := newHandlerWithMocks(repo, nil)
-	c, rec := echoCtxWithPolicy(http.MethodGet, "/users/999", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/users/999", "", rbac.AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("999")
 
@@ -92,7 +74,7 @@ func TestUserHandler_Create_OK(t *testing.T) {
 		},
 	}
 	h := newHandlerWithMocks(repo, nil)
-	c, rec := echoCtxWithPolicy(http.MethodPost, "/users", `{"email":"bob@example.com","password":"secret"}`)
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/users", `{"email":"bob@example.com","password":"secret"}`, rbac.AllFields())
 
 	require.NoError(t, h.Create(c))
 	assert.Equal(t, http.StatusCreated, rec.Code)
@@ -121,7 +103,7 @@ func TestUserHandler_Create_DuplicateEmail_Returns500(t *testing.T) {
 		},
 	}
 	h := newHandlerWithMocks(repo, nil)
-	c, rec := echoCtxWithPolicy(http.MethodPost, "/users", `{"email":"bob@example.com","password":"secret"}`)
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/users", `{"email":"bob@example.com","password":"secret"}`, rbac.AllFields())
 
 	require.NoError(t, h.Create(c))
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
@@ -142,7 +124,7 @@ func TestUserHandler_List_OK(t *testing.T) {
 		},
 	}
 	h := newHandlerWithMocks(repo, nil)
-	c, rec := echoCtxWithPolicy(http.MethodGet, "/users", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/users", "", rbac.AllFields())
 
 	require.NoError(t, h.List(c))
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -152,7 +134,7 @@ func TestUserHandler_List_OK(t *testing.T) {
 
 func TestUserHandler_Delete_OK(t *testing.T) {
 	h := newHandlerWithMocks(nil, nil)
-	c, rec := echoCtxWithPolicy(http.MethodDelete, "/users/1", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/users/1", "", rbac.AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 

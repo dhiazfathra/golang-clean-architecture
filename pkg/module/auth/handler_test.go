@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
@@ -13,23 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
 func newTestHandler(sessions session.SessionStore, users UserProvider, hasher PasswordHasher) *Handler {
 	return NewHandler(newTestSvc(sessions, users, hasher))
-}
-
-func echoCtx(method, target, body string) (echo.Context, *httptest.ResponseRecorder) {
-	e := echo.New()
-	var req *http.Request
-	if body != "" {
-		req = httptest.NewRequest(method, target, strings.NewReader(body))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	} else {
-		req = httptest.NewRequest(method, target, nil)
-	}
-	rec := httptest.NewRecorder()
-	return e.NewContext(req, rec), rec
 }
 
 // --- Login ---
@@ -47,7 +34,7 @@ func TestAuthHandler_Login_OK(t *testing.T) {
 		},
 	}
 	h := newTestHandler(sessions, users, nil)
-	c, rec := echoCtx(http.MethodPost, "/auth/login", `{"email":"a@b.com","password":"pass"}`)
+	c, rec := testutil.EchoCtx(http.MethodPost, "/auth/login", `{"email":"a@b.com","password":"pass"}`)
 
 	require.NoError(t, h.Login(c))
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -67,7 +54,7 @@ func TestAuthHandler_Login_OK(t *testing.T) {
 func TestAuthHandler_Login_BadBody(t *testing.T) {
 	t.Parallel()
 	h := newTestHandler(nil, nil, nil)
-	c, rec := echoCtx(http.MethodPost, "/auth/login", "{bad")
+	c, rec := testutil.EchoCtx(http.MethodPost, "/auth/login", "{bad")
 
 	require.NoError(t, h.Login(c))
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -77,7 +64,7 @@ func TestAuthHandler_Login_ValidationError(t *testing.T) {
 	t.Parallel()
 	h := newTestHandler(nil, nil, nil)
 	// Missing password
-	c, rec := echoCtx(http.MethodPost, "/auth/login", `{"email":"a@b.com"}`)
+	c, rec := testutil.EchoCtx(http.MethodPost, "/auth/login", `{"email":"a@b.com"}`)
 
 	require.NoError(t, h.Login(c))
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
@@ -91,7 +78,7 @@ func TestAuthHandler_Login_Unauthorized(t *testing.T) {
 		},
 	}
 	h := newTestHandler(nil, users, nil)
-	c, rec := echoCtx(http.MethodPost, "/auth/login", `{"email":"bad@b.com","password":"wrong"}`)
+	c, rec := testutil.EchoCtx(http.MethodPost, "/auth/login", `{"email":"bad@b.com","password":"wrong"}`)
 
 	require.NoError(t, h.Login(c))
 	assert.Equal(t, http.StatusUnauthorized, rec.Code)
@@ -121,7 +108,7 @@ func TestAuthHandler_Logout_WithCookie(t *testing.T) {
 
 func TestAuthHandler_Logout_NoCookie(t *testing.T) {
 	h := newTestHandler(nil, nil, nil)
-	c, rec := echoCtx(http.MethodPost, "/auth/logout", "")
+	c, rec := testutil.EchoCtx(http.MethodPost, "/auth/logout", "")
 
 	require.NoError(t, h.Logout(c))
 	assert.Equal(t, http.StatusOK, rec.Code)

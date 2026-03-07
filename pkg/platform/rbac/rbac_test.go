@@ -870,8 +870,8 @@ func TestHandlerCreateRoleServiceError(t *testing.T) {
 	}
 	svc := NewService(store, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodPost, "/admin/roles",
-		`{"name":"editor","description":"test"}`)
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles",
+		`{"name":"editor","description":"test"}`, AllFields())
 
 	require.NoError(t, h.CreateRole(c))
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
@@ -880,7 +880,7 @@ func TestHandlerCreateRoleServiceError(t *testing.T) {
 func TestHandlerCreateRoleBindError(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodPost, "/admin/roles", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles", "", AllFields())
 	// Set invalid content type to trigger bind error
 	c.Request().Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
 
@@ -896,7 +896,7 @@ func TestHandlerListRolesError(t *testing.T) {
 		},
 	})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodGet, "/admin/roles", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles", "", AllFields())
 
 	require.NoError(t, h.ListRoles(c))
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
@@ -909,7 +909,7 @@ func TestHandlerGetRoleError(t *testing.T) {
 		},
 	})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodGet, "/admin/roles/1", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles/1", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 
@@ -925,7 +925,7 @@ func TestHandlerDeleteRoleError(t *testing.T) {
 	}
 	svc := NewService(store, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodDelete, "/admin/roles/1", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 
@@ -941,8 +941,8 @@ func TestHandlerGrantPermissionError(t *testing.T) {
 	}
 	svc := NewService(store, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodPost, "/admin/roles/1/permissions",
-		`{"module":"orders","action":"read","fields":{"mode":"all"}}`)
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles/1/permissions",
+		`{"module":"orders","action":"read","fields":{"mode":"all"}}`, AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 
@@ -958,7 +958,7 @@ func TestHandlerRevokePermissionError(t *testing.T) {
 	}
 	svc := NewService(store, &mockRepo{})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodDelete, "/admin/roles/1/permissions/orders:read", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1/permissions/orders:read", "", AllFields())
 	c.SetParamNames("id", "perm")
 	c.SetParamValues("1", "orders:read")
 
@@ -973,7 +973,7 @@ func TestHandlerListUserRolesError(t *testing.T) {
 		},
 	})
 	h := NewHandler(svc, nil)
-	c, rec := rbacEchoCtx(http.MethodGet, "/admin/users/u1/roles", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/users/u1/roles", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("u1")
 

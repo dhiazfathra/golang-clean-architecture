@@ -13,23 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
-
-func echoCtxWithPolicy(method, target, body string) (echo.Context, *httptest.ResponseRecorder) {
-	e := echo.New()
-	var req *http.Request
-	if body != "" {
-		req = httptest.NewRequest(method, target, strings.NewReader(body))
-		req.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
-	} else {
-		req = httptest.NewRequest(method, target, nil)
-	}
-	rec := httptest.NewRecorder()
-	c := e.NewContext(req, rec)
-	c.Set("user_id", "actor_1")
-	c.Set("rbac_field_policy", rbac.AllFields())
-	return c, rec
-}
 
 func newTestHandler(repo ReadRepository, store *mockEventStore, userProv UserProvider) *Handler {
 	if store == nil {
@@ -48,8 +33,8 @@ func newTestHandler(repo ReadRepository, store *mockEventStore, userProv UserPro
 
 func TestOrderHandler_Create_OK(t *testing.T) {
 	h := newTestHandler(nil, nil, nil)
-	c, rec := echoCtxWithPolicy(http.MethodPost, "/orders",
-		`{"user_id":"100","total":49.99}`)
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/orders",
+		`{"user_id":"100","total":49.99}`, rbac.AllFields())
 
 	require.NoError(t, h.Create(c))
 	assert.Equal(t, http.StatusCreated, rec.Code)
@@ -76,7 +61,7 @@ func TestOrderHandler_Create_UserNotFound_Returns500(t *testing.T) {
 		GetByIDFn: func(_ context.Context, _ string) (bool, error) { return false, nil },
 	}
 	h := newTestHandler(nil, nil, userProv)
-	c, rec := echoCtxWithPolicy(http.MethodPost, "/orders", `{"user_id":"999","total":1.0}`)
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/orders", `{"user_id":"999","total":1.0}`, rbac.AllFields())
 
 	require.NoError(t, h.Create(c))
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
@@ -91,7 +76,7 @@ func TestOrderHandler_GetByID_OK(t *testing.T) {
 		},
 	}
 	h := newTestHandler(repo, nil, nil)
-	c, rec := echoCtxWithPolicy(http.MethodGet, "/orders/1", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/orders/1", "", rbac.AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 
@@ -106,7 +91,7 @@ func TestOrderHandler_GetByID_NotFound(t *testing.T) {
 		},
 	}
 	h := newTestHandler(repo, nil, nil)
-	c, rec := echoCtxWithPolicy(http.MethodGet, "/orders/999", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/orders/999", "", rbac.AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("999")
 
@@ -123,7 +108,7 @@ func TestOrderHandler_List_OK(t *testing.T) {
 		},
 	}
 	h := newTestHandler(repo, nil, nil)
-	c, rec := echoCtxWithPolicy(http.MethodGet, "/orders", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/orders", "", rbac.AllFields())
 
 	require.NoError(t, h.List(c))
 	assert.Equal(t, http.StatusOK, rec.Code)
@@ -133,7 +118,7 @@ func TestOrderHandler_List_OK(t *testing.T) {
 
 func TestOrderHandler_Delete_OK(t *testing.T) {
 	h := newTestHandler(nil, nil, nil)
-	c, rec := echoCtxWithPolicy(http.MethodDelete, "/orders/1", "")
+	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/orders/1", "", rbac.AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
 
