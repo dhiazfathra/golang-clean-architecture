@@ -381,3 +381,65 @@ func TestList_DelegatesToRepo(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, want, got)
 }
+
+// --- CreateUserForSeeder ---
+
+func TestCreateUserForSeeder_Success(t *testing.T) {
+	var appended []eventstore.Event
+	store := &mockEventStore{
+		AppendFn: func(_ context.Context, evs []eventstore.Event) error {
+			appended = append(appended, evs...)
+			return nil
+		},
+	}
+	repo := &mockReadRepo{
+		GetByEmailFn: func(_ context.Context, _ string) (*UserReadModel, error) {
+			return nil, nil
+		},
+	}
+	svc := newTestSvc(store, repo, nil)
+
+	id, err := svc.CreateUserForSeeder(context.Background(), seeder.CreateUserCmd{
+		Email: "alice@example.com", Password: "pass", Actor: "actor_1",
+	})
+	require.NoError(t, err)
+	assert.NotEmpty(t, id)
+	require.Len(t, appended, 1)
+	ev, ok := appended[0].(*UserCreated)
+	require.True(t, ok)
+	assert.Equal(t, "alice@example.com", ev.Email)
+	assert.Equal(t, "hashed_pass", ev.PassHash)
+	assert.Equal(t, "actor_1", ev.Metadata()["user_id"])
+}
+
+func TestCreateUserForSeeder_DuplicateEmail(t *testing.T) {
+	repo := &mockReadRepo{
+		GetByEmailFn: func(_ context.Context, _ string) (*UserReadModel, error) {
+			return &UserReadModel{Email: "alice@example.com"}, nil
+		},
+	}
+	svc := newTestSvc(nil, repo, nil)
+
+	_, err := svc.CreateUserForSeeder(context.Background(), seeder.CreateUserCmd{
+		Email: "alice@example.com", Password: "pass",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), emailAlreadyRegisteredError)
+}
+
+func TestCreateUserForSeeder_HashError(t *testing.T) {
+	repo := &mockReadRepo{
+		GetByEmailFn: func(_ context.Context, _ string) (*UserReadModel, error) {
+			return nil, nil
+		},
+	}
+	hasher := &mockHasher{
+		HashFn: func(_ string) (string, error) { return "", errors.New("hash failed") },
+	}
+	svc := newTestSvc(nil, repo, hasher)
+
+	_, err := svc.CreateUserForSeeder(context.Background(), seeder.CreateUserCmd{
+		Email: "bob@example.com", Password: "pass",
+	})
+	require.Error(t, err)
+}
