@@ -1,3 +1,6 @@
+include .env
+export
+
 .PHONY: infra-up infra-down build test cover migrate seed generate lint run vet install-hooks sql-validate setup-prereqs setup setup-reset
 
 SERVICE_NAME ?= golang-clean-arch
