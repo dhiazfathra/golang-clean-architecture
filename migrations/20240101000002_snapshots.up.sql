@@ -1,3 +1,4 @@
+-- This migration is intentionally irreversible (no down migration).
 CREATE TABLE snapshots (
     aggregate_type  TEXT         NOT NULL,
     aggregate_id    TEXT         NOT NULL,

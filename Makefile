@@ -22,6 +22,20 @@ migrate:
 		psql "$(DATABASE_URL)" -f "$$f" 2>/dev/null || true; \
 	done
 
+migrate-up:
+	@echo "Applying migrations..."
+	@for f in $$(ls migrations/*.up.sql | sort); do \
+		echo "  $$f"; \
+		psql "$(DATABASE_URL)" -f "$$f" 2>/dev/null || true; \
+	done
+
+migrate-down:
+	@echo "Reverting migrations..."
+	@for f in $$(ls migrations/*.down.sql | sort -r); do \
+		echo "  $$f"; \
+		psql "$(DATABASE_URL)" -f "$$f" 2>/dev/null || true; \
+	done
+
 seed:
 	SEED_ONLY=true go run ./cmd/server/...
 

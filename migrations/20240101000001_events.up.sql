@@ -1,3 +1,4 @@
+-- This migration is intentionally irreversible (no down migration).
 CREATE TABLE events (
     id              BIGSERIAL    PRIMARY KEY,
     aggregate_type  TEXT         NOT NULL,
