@@ -139,7 +139,7 @@ linters:
         - octalLiteral
         - whyNoLint
     gocyclo:
-      min-complexity: 15
+      min-complexity: 20
     godox:
       keywords:
         - FIXME

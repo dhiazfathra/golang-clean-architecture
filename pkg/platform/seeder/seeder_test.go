@@ -4,10 +4,12 @@ import (
 	"context"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
@@ -100,6 +102,65 @@ func (m *mockUserCreator) AssignRole(ctx context.Context, userID, roleID, actor 
 		return m.AssignRoleFn(ctx, userID, roleID, actor)
 	}
 	return nil
+}
+
+// --- hand-rolled mock: seeder.FeatureFlagCreator ---
+
+type mockFFCreator struct {
+	CreateFn func(ctx context.Context, key, description string, enabled bool, userID string) (*seeder.FeatureFlag, error)
+	ListFn   func(ctx context.Context) ([]seeder.FeatureFlag, error)
+}
+
+func (m *mockFFCreator) Create(ctx context.Context, key, description string, enabled bool, userID string) (*seeder.FeatureFlag, error) {
+	if m.CreateFn != nil {
+		return m.CreateFn(ctx, key, description, enabled, userID)
+	}
+	return &seeder.FeatureFlag{ID: 1, Key: key}, nil
+}
+func (m *mockFFCreator) List(ctx context.Context) ([]seeder.FeatureFlag, error) {
+	if m.ListFn != nil {
+		return m.ListFn(ctx)
+	}
+	return nil, nil
+}
+
+// --- hand-rolled mock: seeder.EnvVarCreator ---
+
+type mockEnvVarCreator struct{}
+
+func (m *mockEnvVarCreator) Create(ctx context.Context, platform, key, value, userID string) (*seeder.EnvVar, error) {
+	return &seeder.EnvVar{ID: 1, Platform: platform, Key: key, Value: value}, nil
+}
+func (m *mockEnvVarCreator) ListByPlatform(ctx context.Context, platform string, req database.PageRequest) (*database.PageResponse[seeder.EnvVar], error) {
+	return &database.PageResponse[seeder.EnvVar]{
+		Items:      nil,
+		Total:      0,
+		Page:       1,
+		PageSize:   100,
+		TotalPages: 0,
+	}, nil
+}
+
+// --- hand-rolled mock: seeder.APITokenCreator ---
+
+type mockAPITokenCreator struct{}
+
+func (m *mockAPITokenCreator) Create(ctx context.Context, name, userID string, ttl time.Duration) (string, *seeder.APIToken, error) {
+	return "token", &seeder.APIToken{ID: 1, Name: name, UserID: userID}, nil
+}
+func (m *mockAPITokenCreator) List(ctx context.Context, userID string) ([]seeder.APIToken, error) {
+	return nil, nil
+}
+
+// --- hand-rolled mock: seeder.OrderCreator ---
+
+type mockOrderCreator struct{}
+
+func (m *mockOrderCreator) CreateOrder(ctx context.Context, cmd seeder.CreateOrderCmd) (string, error) {
+	return "order-1", nil
+}
+func (m *mockOrderCreator) List(ctx context.Context, req seeder.ListRequest) (*seeder.ListResponse, error) {
+	return &seeder.ListResponse{Items: nil, Total: 0}, nil
 }
 
 // --- helpers ---
@@ -429,7 +490,17 @@ func TestSeed_Success(t *testing.T) {
 	}
 	flusher := &mockFlusher{}
 
-	err := seeder.Seed(context.Background(), svc, userSvc, flusher, "pw", "pw")
+	err := seeder.Seed(context.Background(), seeder.SeedParams{
+		RBACService:           svc,
+		UserService:           userSvc,
+		FeatureFlagService:    &mockFFCreator{},
+		EnvVarService:         &mockEnvVarCreator{},
+		APITokenService:       &mockAPITokenCreator{},
+		OrderService:          &mockOrderCreator{},
+		Flusher:               flusher,
+		SuperAdminPassword:    "pw",
+		DefaultModulePassword: "pw",
+	})
 	require.NoError(t, err)
 }
 
@@ -450,7 +521,17 @@ func TestSeed_FlusherError(t *testing.T) {
 		},
 	}
 
-	err := seeder.Seed(context.Background(), svc, userSvc, flusher, "pw", "pw")
+	err := seeder.Seed(context.Background(), seeder.SeedParams{
+		RBACService:           svc,
+		UserService:           userSvc,
+		FeatureFlagService:    &mockFFCreator{},
+		EnvVarService:         &mockEnvVarCreator{},
+		APITokenService:       &mockAPITokenCreator{},
+		OrderService:          &mockOrderCreator{},
+		Flusher:               flusher,
+		SuperAdminPassword:    "pw",
+		DefaultModulePassword: "pw",
+	})
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "flush projections")
 }

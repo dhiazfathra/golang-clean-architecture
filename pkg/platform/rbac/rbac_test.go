@@ -413,7 +413,7 @@ func TestApplyRole_RoleDeleted(t *testing.T) {
 func TestApplyRole_UnknownEvent(t *testing.T) {
 	agg := newRoleAggregate("r1")
 	e := eventstore.NewBaseEvent("r1", "role", "unknown", 1, nil)
-	agg.Apply(e) // should not panic
+	agg.Apply(&e) // should not panic
 	assert.Equal(t, RoleState{}, agg.State)
 }
 
