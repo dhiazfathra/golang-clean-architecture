@@ -32,6 +32,7 @@ func (h *Handler) Login(c echo.Context) error {
 	c.SetCookie(&http.Cookie{
 		Name:     "session_id",
 		Value:    sess.ID,
+		Path:     "/",
 		HttpOnly: true,
 		SameSite: http.SameSiteLaxMode,
 		Expires:  sess.ExpiresAt,
@@ -45,7 +46,7 @@ func (h *Handler) Logout(c echo.Context) error {
 		return httputil.OK(c, map[string]string{"message": "ok"})
 	}
 	_ = h.svc.Logout(c.Request().Context(), cookie.Value)
-	c.SetCookie(&http.Cookie{Name: "session_id", MaxAge: -1})
+	c.SetCookie(&http.Cookie{Name: "session_id", Path: "/", MaxAge: -1})
 	return httputil.OK(c, map[string]string{"message": "logged out"})
 }
 

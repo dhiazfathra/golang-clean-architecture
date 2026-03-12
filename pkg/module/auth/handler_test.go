@@ -46,6 +46,7 @@ func TestAuthHandler_Login_OK(t *testing.T) {
 		if ck.Name == "session_id" {
 			found = true
 			assert.Equal(t, "s1", ck.Value)
+			assert.Equal(t, "/", ck.Path, "cookie path must be / so it is sent for all routes")
 		}
 	}
 	assert.True(t, found, "session_id cookie should be set")
