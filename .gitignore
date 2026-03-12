@@ -36,3 +36,6 @@ go.work.sum
 # .idea/
 # .vscode/
 ctx
+
+# Used for testing locally using cURL
+cookies.txt

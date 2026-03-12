@@ -27,17 +27,41 @@ func (p *Projector) Handle(ctx context.Context, e eventstore.Event) error {
 			VALUES ($1,$2,$3,$4,$5,$4,$5,false)
 			ON CONFLICT (id) DO UPDATE SET name=$2, description=$3, updated_at=$4, updated_by=$5`,
 			roleID, ev.Name, ev.Description, at, by)
-		return err
+		if err != nil {
+			return err
+		}
+		for _, perm := range ev.Permissions {
+			permID := snowflake.NewID()
+			fieldList := perm.Fields.Fields
+			if fieldList == nil {
+				fieldList = []string{}
+			}
+			_, err = p.db.ExecContext(ctx, `
+				INSERT INTO permissions_read (id,role_id,module,action,field_mode,field_list,created_at,created_by,updated_at,updated_by,is_deleted)
+				VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$7,$8,false)
+				ON CONFLICT (role_id, module, action)
+				DO UPDATE SET field_mode=$5,field_list=$6,is_deleted=false,updated_at=$7,updated_by=$8`,
+				permID, roleID, perm.Module, perm.Action,
+				perm.Fields.Mode, pq.Array(fieldList), at, by)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
 	case *PermissionGranted:
 		roleID, _ := strconv.ParseInt(ev.AggregateID(), 10, 64)
 		permID := snowflake.NewID()
+		fieldList := ev.Permission.Fields.Fields
+		if fieldList == nil {
+			fieldList = []string{}
+		}
 		_, err := p.db.ExecContext(ctx, `
 			INSERT INTO permissions_read (id,role_id,module,action,field_mode,field_list,created_at,created_by,updated_at,updated_by,is_deleted)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$7,$8,false)
 			ON CONFLICT (role_id, module, action)
 			DO UPDATE SET field_mode=$5,field_list=$6,is_deleted=false,updated_at=$7,updated_by=$8`,
 			permID, roleID, ev.Permission.Module, ev.Permission.Action,
-			ev.Permission.Fields.Mode, pq.Array(ev.Permission.Fields.Fields), at, by)
+			ev.Permission.Fields.Mode, pq.Array(fieldList), at, by)
 		return err
 	case *PermissionRevoked:
 		roleID, _ := strconv.ParseInt(ev.AggregateID(), 10, 64)

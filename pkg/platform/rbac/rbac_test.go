@@ -714,9 +714,33 @@ func TestProjectorHandleRoleCreated(t *testing.T) {
 		BaseEvent:   eventstore.NewBaseEvent("123", "role", "role.created", 1, map[string]string{"user_id": "admin"}),
 		Name:        "editor",
 		Description: "Can edit",
+		Permissions: nil,
 	}
 	err := p.Handle(context.Background(), e)
 	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
+}
+
+func TestProjectorHandleRoleCreatedWithPermissions(t *testing.T) {
+	db, mock := testutil.NewMockDB(t)
+	p := NewProjector(db)
+
+	mock.ExpectExec("INSERT INTO roles_read").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO permissions_read").WillReturnResult(sqlmock.NewResult(1, 1))
+	mock.ExpectExec("INSERT INTO permissions_read").WillReturnResult(sqlmock.NewResult(1, 1))
+
+	e := &RoleCreated{
+		BaseEvent:   eventstore.NewBaseEvent("456", "role", "role.created", 1, map[string]string{"user_id": "system"}),
+		Name:        "super_admin",
+		Description: "Full access to all modules",
+		Permissions: []Permission{
+			{Module: "*", Action: "*", Fields: AllFields()},
+			{Module: "users", Action: "read", Fields: AllowFields("id", "email")},
+		},
+	}
+	err := p.Handle(context.Background(), e)
+	assert.NoError(t, err)
+	assert.NoError(t, mock.ExpectationsWereMet())
 }
 
 func TestProjectorHandlePermissionGranted(t *testing.T) {

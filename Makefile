@@ -1,7 +1,7 @@
 -include .env
 export
 
-.PHONY: infra-up infra-down build test cover migrate seed generate lint run vet install-hooks sql-validate setup-prereqs setup setup-reset
+.PHONY: infra-up infra-down build test cover migrate seed db-reset generate lint run vet install-hooks sql-validate setup-prereqs setup setup-reset
 
 SERVICE_NAME ?= golang-clean-arch
 ENV          ?= development
@@ -37,7 +37,14 @@ migrate-down:
 	done
 
 seed:
-	SEED_ONLY=true go run ./cmd/server/...
+	@echo "Running seeder..."
+	@go run ./cmd/seed/...
+
+db-reset:
+	@echo "Resetting database and seeding..."
+	@$(MAKE) --no-print-directory migrate-down
+	@$(MAKE) --no-print-directory migrate-up
+	@$(MAKE) --no-print-directory seed
 
 generate:
 	go run cmd/generate/main.go -module=$(module) -fields=$(fields)
