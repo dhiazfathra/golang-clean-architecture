@@ -8,10 +8,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/auth"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/order"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
-	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/apitoken"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
-	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/envvar"
-	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/featureflag"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
 )
 
@@ -46,7 +43,7 @@ func (a *seederUserAdapter) AssignRole(ctx context.Context, userID, roleID, acto
 }
 
 // seederFFAdapter bridges featureflag.Service → seeder.FeatureFlagCreator.
-type seederFFAdapter struct{ svc *featureflag.Service }
+type seederFFAdapter struct{ svc ffService }
 
 func (a *seederFFAdapter) Create(ctx context.Context, key, description string, enabled bool, userID string) (*seeder.FeatureFlag, error) {
 	f, err := a.svc.Create(ctx, key, description, enabled, userID)
@@ -79,7 +76,7 @@ func (a *seederFFAdapter) List(ctx context.Context) ([]seeder.FeatureFlag, error
 }
 
 // seederEnvVarAdapter bridges envvar.Service → seeder.EnvVarCreator.
-type seederEnvVarAdapter struct{ svc *envvar.Service }
+type seederEnvVarAdapter struct{ svc evService }
 
 func (a *seederEnvVarAdapter) Create(ctx context.Context, platform, key, value, userID string) (*seeder.EnvVar, error) {
 	e, err := a.svc.Create(ctx, platform, key, value, userID)
@@ -118,7 +115,7 @@ func (a *seederEnvVarAdapter) ListByPlatform(ctx context.Context, platform strin
 }
 
 // seederAPITokenAdapter bridges apitoken.Service → seeder.APITokenCreator.
-type seederAPITokenAdapter struct{ svc *apitoken.Service }
+type seederAPITokenAdapter struct{ svc atService }
 
 func (a *seederAPITokenAdapter) Create(ctx context.Context, name, userID string, ttl time.Duration) (string, *seeder.APIToken, error) {
 	raw, token, err := a.svc.Create(ctx, name, userID, ttl)
@@ -155,7 +152,7 @@ func (a *seederAPITokenAdapter) List(ctx context.Context, userID string) ([]seed
 }
 
 // seederOrderAdapter bridges order.Service → seeder.OrderCreator.
-type seederOrderAdapter struct{ svc *order.Service }
+type seederOrderAdapter struct{ svc orderService }
 
 func (a *seederOrderAdapter) CreateOrder(ctx context.Context, cmd seeder.CreateOrderCmd) (string, error) {
 	return a.svc.CreateOrder(ctx, order.CreateOrderCmd{
