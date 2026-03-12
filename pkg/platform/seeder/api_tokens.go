@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 type APITokenCreator interface {
@@ -20,7 +22,7 @@ type APIToken struct {
 	ExpiresAt   time.Time
 }
 
-func SeedAPITokens(ctx context.Context, tokenSvc APITokenCreator, superAdminUserID string) error {
+func SeedAPITokens(ctx context.Context, logger zerolog.Logger, tokenSvc APITokenCreator, superAdminUserID string) error {
 	existing, err := tokenSvc.List(ctx, superAdminUserID)
 	if err != nil {
 		return fmt.Errorf("list existing api tokens: %w", err)
@@ -36,7 +38,7 @@ func SeedAPITokens(ctx context.Context, tokenSvc APITokenCreator, superAdminUser
 		if err != nil {
 			return fmt.Errorf("seed dev api token: %w", err)
 		}
-		fmt.Printf("Created dev API token: %s\n", raw) //nolint:forbidigo // TODO: replace with proper logging
+		logger.Info().Str("token", raw).Msg("created dev API token")
 	}
 
 	return nil

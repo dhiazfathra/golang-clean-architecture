@@ -34,6 +34,7 @@ type Config struct {
 	// Observability
 	StatsdAddr      string `yaml:"statsd_addr"`
 	StatsdNamespace string `yaml:"statsd_namespace"`
+	LogLevel        string `yaml:"log_level"`
 
 	// Feature Flags
 	FeatureFlagRefreshTTL time.Duration `yaml:"feature_flag_refresh_ttl"`
@@ -55,6 +56,7 @@ func MustLoad() *Config {
 		SessionTTL:            24 * time.Hour,
 		StatsdAddr:            "localhost:8125",
 		StatsdNamespace:       "golang_clean_arch.",
+		LogLevel:              "info",
 		FeatureFlagRefreshTTL: 30 * time.Second,
 		EnvVarRefreshTTL:      30 * time.Second,
 		APITokenRefreshTTL:    30 * time.Second,
@@ -106,6 +108,7 @@ func applyEnvOverrides(cfg *Config) {
 	overrideStr("SERVICE_NAME", &cfg.ServiceName)
 	overrideStr("STATSD_ADDR", &cfg.StatsdAddr)
 	overrideStr("STATSD_NAMESPACE", &cfg.StatsdNamespace)
+	overrideStr("LOG_LEVEL", &cfg.LogLevel)
 	overrideStr("SEED_SUPER_ADMIN_PASSWORD", &cfg.SeedSuperAdminPassword)
 	overrideStr("SEED_DEFAULT_MODULE_PASSWORD", &cfg.SeedDefaultModulePassword)
 	overrideInt("DB_MAX_OPEN_CONNS", &cfg.DBMaxOpenConns)

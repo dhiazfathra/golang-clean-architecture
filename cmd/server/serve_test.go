@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/config"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 )
 
 // ---------------------------------------------------------------------------
@@ -52,6 +53,7 @@ func minimalDeps(env string) RouterDeps {
 			Env:         env,
 			ServiceName: "test-svc",
 		},
+		Logger: logging.Noop(),
 	}
 }
 
@@ -253,7 +255,7 @@ func TestStartAndAwaitShutdown_GracefulShutdown(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- startAndAwaitShutdown(e, addr, quit)
+		done <- startAndAwaitShutdown(e, addr, quit, logging.Noop())
 	}()
 
 	// Wait until the server is actually accepting connections.
@@ -300,7 +302,7 @@ func TestStartAndAwaitShutdown_ServerStartError(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- startAndAwaitShutdown(e, addr, quit)
+		done <- startAndAwaitShutdown(e, addr, quit, logging.Noop())
 	}()
 
 	select {
@@ -325,7 +327,7 @@ func TestStartAndAwaitShutdown_ClosedQuitChannel(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		done <- startAndAwaitShutdown(e, addr, quit)
+		done <- startAndAwaitShutdown(e, addr, quit, logging.Noop())
 	}()
 
 	// Wait until the server is up, then close the channel (simulates the

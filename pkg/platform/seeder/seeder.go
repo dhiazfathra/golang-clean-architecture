@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rs/zerolog"
+
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 )
 
@@ -39,6 +41,7 @@ type SeedParams struct {
 	APITokenService       APITokenCreator
 	OrderService          OrderCreator
 	Flusher               ProjectionFlusher
+	Logger                zerolog.Logger
 	SuperAdminPassword    string
 	DefaultModulePassword string
 }
@@ -81,7 +84,7 @@ func Seed(ctx context.Context, params SeedParams) error {
 	if err != nil {
 		return fmt.Errorf("get super admin user: %w", err)
 	}
-	if err := SeedAPITokens(ctx, params.APITokenService, superAdmin.ID); err != nil {
+	if err := SeedAPITokens(ctx, params.Logger, params.APITokenService, superAdmin.ID); err != nil {
 		return fmt.Errorf("seed api tokens: %w", err)
 	}
 

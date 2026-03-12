@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 )
 
@@ -57,7 +58,7 @@ func TestBadRequest(t *testing.T) {
 
 func TestInternalError(t *testing.T) {
 	c, rec := newTestContext(http.MethodGet, "/", "")
-	err := InternalError(c, errors.New("boom"))
+	err := InternalError(c, logging.Noop(), errors.New("boom"))
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 	assert.Contains(t, rec.Body.String(), "internal server error")
@@ -73,14 +74,14 @@ func TestNotFound(t *testing.T) {
 
 func TestNotFoundOrError_NotFound(t *testing.T) {
 	c, rec := newTestContext(http.MethodGet, "/", "")
-	err := NotFoundOrError(c, ErrNotFound)
+	err := NotFoundOrError(c, logging.Noop(), ErrNotFound)
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusNotFound, rec.Code)
 }
 
 func TestNotFoundOrError_InternalError(t *testing.T) {
 	c, rec := newTestContext(http.MethodGet, "/", "")
-	err := NotFoundOrError(c, errors.New("db fail"))
+	err := NotFoundOrError(c, logging.Noop(), errors.New("db fail"))
 	require.NoError(t, err)
 	assert.Equal(t, http.StatusInternalServerError, rec.Code)
 }

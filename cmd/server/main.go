@@ -16,6 +16,7 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/envvar"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/featureflag"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
@@ -34,12 +35,14 @@ func main() {
 
 // defaultWire is the real implementation used in production.
 func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
+	logger := logging.New(cfg.Env, cfg.LogLevel)
+
 	observability.Init(observability.InitConfig{
 		ServiceName:     cfg.ServiceName,
 		Env:             cfg.Env,
 		StatsdAddr:      cfg.StatsdAddr,
 		StatsdNamespace: cfg.StatsdNamespace,
-	})
+	}, logger)
 
 	db := database.MustConnect(cfg.DatabaseURL, database.PoolConfig{
 		MaxOpenConns: cfg.DBMaxOpenConns,
@@ -68,7 +71,7 @@ func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	runner := eventstore.NewProjectionRunner(db, es)
+	runner := eventstore.NewProjectionRunner(db, es, logger)
 	runner.Register(rbacProjector)
 	runner.Register(userProjector)
 	runner.Register(orderProjector)
@@ -91,6 +94,7 @@ func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 		APITokenService:       &seederAPITokenAdapter{tokenSvc},
 		OrderService:          &seederOrderAdapter{orderSvc},
 		Flusher:               runner,
+		Logger:                logger,
 		SuperAdminPassword:    cfg.SeedSuperAdminPassword,
 		DefaultModulePassword: cfg.SeedDefaultModulePassword,
 	}); err != nil {
@@ -118,6 +122,7 @@ func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 		Cfg:          *cfg,
 		DB:           db,
 		VK:           vk,
+		Logger:       logger,
 		SessionStore: sessionStore,
 		AuthSvc:      authSvc,
 		RBACSvc:      rbacSvc,

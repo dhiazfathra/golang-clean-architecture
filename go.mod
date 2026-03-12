@@ -14,6 +14,7 @@ require (
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/labstack/echo/v4 v4.15.1
 	github.com/lib/pq v1.11.2
+	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
 	github.com/valkey-io/valkey-go v1.0.72
 	golang.org/x/crypto v0.48.0

@@ -2,15 +2,16 @@ package {{.Name}}
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 
 	"{{.ModPath}}/pkg/platform/rbac"
 )
 
-func RegisterRoutes(g *echo.Group, h *Handler, rbacSvc *rbac.Service) {
+func RegisterRoutes(g *echo.Group, h *Handler, rbacSvc *rbac.Service, logger zerolog.Logger) {
 	r := g.Group("/{{.NamePlural}}")
-	r.POST("", h.Create, rbac.RequirePermission(rbacSvc, "{{.Name}}", "create"))
-	r.GET("/:id", h.GetByID, rbac.RequirePermission(rbacSvc, "{{.Name}}", "read"))
-	r.GET("", h.List, rbac.RequirePermission(rbacSvc, "{{.Name}}", "list"))
-	r.PUT("/:id", h.Update, rbac.RequirePermission(rbacSvc, "{{.Name}}", "update"))
-	r.DELETE("/:id", h.Delete, rbac.RequirePermission(rbacSvc, "{{.Name}}", "delete"))
+	r.POST("", h.Create, rbac.RequirePermission(rbacSvc, logger, "{{.Name}}", "create"))
+	r.GET("/:id", h.GetByID, rbac.RequirePermission(rbacSvc, logger, "{{.Name}}", "read"))
+	r.GET("", h.List, rbac.RequirePermission(rbacSvc, logger, "{{.Name}}", "list"))
+	r.PUT("/:id", h.Update, rbac.RequirePermission(rbacSvc, logger, "{{.Name}}", "update"))
+	r.DELETE("/:id", h.Delete, rbac.RequirePermission(rbacSvc, logger, "{{.Name}}", "delete"))
 }

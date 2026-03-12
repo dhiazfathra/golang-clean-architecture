@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
@@ -263,7 +264,7 @@ func TestRequirePermission_Forbidden(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("user_id", "user1")
 
-	mw := RequirePermission(svc, "orders", "read")
+	mw := RequirePermission(svc, logging.Noop(), "orders", "read")
 	handler := mw(func(c echo.Context) error {
 		return c.String(http.StatusOK, "ok")
 	})
@@ -293,7 +294,7 @@ func TestRequirePermission_Allowed_PolicyInContext(t *testing.T) {
 	c.Set("user_id", "user1")
 
 	var capturedPolicy FieldPolicy
-	mw := RequirePermission(svc, "orders", "read")
+	mw := RequirePermission(svc, logging.Noop(), "orders", "read")
 	handler := mw(func(c echo.Context) error {
 		capturedPolicy, _ = c.Get("rbac_field_policy").(FieldPolicy)
 		return c.String(http.StatusOK, "ok")
@@ -615,7 +616,7 @@ func TestRequirePermissionCheckError(t *testing.T) {
 	c := e.NewContext(req, rec)
 	c.Set("user_id", "user1")
 
-	mw := RequirePermission(svc, "orders", "read")
+	mw := RequirePermission(svc, logging.Noop(), "orders", "read")
 	handler := mw(func(c echo.Context) error {
 		return c.String(http.StatusOK, "ok")
 	})
@@ -689,8 +690,8 @@ func TestRegisterRoutes(t *testing.T) {
 			return nil, nil
 		},
 	})
-	h := NewHandler(svc, nil)
-	RegisterRoutes(g, h, svc)
+	h := NewHandler(svc, nil, logging.Noop())
+	RegisterRoutes(g, h, svc, logging.Noop())
 	assert.True(t, len(e.Routes()) >= 8)
 }
 
@@ -869,7 +870,7 @@ func TestHandlerCreateRoleServiceError(t *testing.T) {
 		},
 	}
 	svc := NewService(store, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles",
 		`{"name":"editor","description":"test"}`, AllFields())
 
@@ -879,7 +880,7 @@ func TestHandlerCreateRoleServiceError(t *testing.T) {
 
 func TestHandlerCreateRoleBindError(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles", "", AllFields())
 	// Set invalid content type to trigger bind error
 	c.Request().Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -895,7 +896,7 @@ func TestHandlerListRolesError(t *testing.T) {
 			return nil, assert.AnError
 		},
 	})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles", "", AllFields())
 
 	require.NoError(t, h.ListRoles(c))
@@ -908,7 +909,7 @@ func TestHandlerGetRoleError(t *testing.T) {
 			return nil, assert.AnError
 		},
 	})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles/1", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
@@ -924,7 +925,7 @@ func TestHandlerDeleteRoleError(t *testing.T) {
 		},
 	}
 	svc := NewService(store, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
@@ -940,7 +941,7 @@ func TestHandlerGrantPermissionError(t *testing.T) {
 		},
 	}
 	svc := NewService(store, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles/1/permissions",
 		`{"module":"orders","action":"read","fields":{"mode":"all"}}`, AllFields())
 	c.SetParamNames("id")
@@ -957,7 +958,7 @@ func TestHandlerRevokePermissionError(t *testing.T) {
 		},
 	}
 	svc := NewService(store, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1/permissions/orders:read", "", AllFields())
 	c.SetParamNames("id", "perm")
 	c.SetParamValues("1", "orders:read")
@@ -972,7 +973,7 @@ func TestHandlerListUserRolesError(t *testing.T) {
 			return nil, assert.AnError
 		},
 	})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/users/u1/roles", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("u1")

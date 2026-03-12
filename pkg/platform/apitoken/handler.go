@@ -6,17 +6,19 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
 type Handler struct {
-	svc *Service
+	svc    *Service
+	logger zerolog.Logger
 }
 
-func NewHandler(svc *Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *Service, logger zerolog.Logger) *Handler {
+	return &Handler{svc: svc, logger: logger}
 }
 
 type createTokenRequest struct {
@@ -48,7 +50,7 @@ func (h *Handler) Create(c echo.Context) error {
 
 	raw, token, err := h.svc.Create(c.Request().Context(), req.Name, userID, ttl)
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusCreated, createTokenResponse{
 		Token:     raw,
@@ -62,7 +64,7 @@ func (h *Handler) List(c echo.Context) error {
 	userID := session.UserID(c)
 	tokens, err := h.svc.List(c.Request().Context(), userID)
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusOK, tokens)
 }
@@ -75,7 +77,7 @@ func (h *Handler) Revoke(c echo.Context) error {
 	}
 	userID := session.UserID(c)
 	if err := h.svc.Revoke(c.Request().Context(), id, userID); err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }

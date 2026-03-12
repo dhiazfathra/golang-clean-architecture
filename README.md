@@ -21,6 +21,7 @@ A Go backend demonstrating a **modular monolith** with **event sourcing**, **RBA
 | Session auth | Valkey (Redis-compatible) cookie sessions + opaque Bearer tokens |
 | RBAC | Module + action + field-level permissions; event-sourced role store |
 | Primary keys | Snowflake `int64` (no UUID, no SERIAL) |
+| Structured logging | zerolog (JSON in prod, console in dev); threaded through all handlers |
 | Observability | Datadog APM, logs, metrics, profiler, DBM, error tracking |
 | API docs | Scalar UI (`/docs`) from embedded OpenAPI spec |
 
@@ -160,7 +161,7 @@ Feature flag and environment variable APIs accept both schemes (multi-auth). Tok
 
 ### RBAC
 
-Roles and permissions are event-sourced (`RoleCreated`, `PermissionGranted`, `RoleAssigned`). Each route carries `rbac.RequirePermission(svc, module, action)` middleware. GET handlers call `rbac.FilterResponse` to strip fields the caller's roles don't permit.
+Roles and permissions are event-sourced (`RoleCreated`, `PermissionGranted`, `RoleAssigned`). Each route carries `rbac.RequirePermission(svc, logger, module, action)` middleware. GET handlers call `rbac.FilterResponse` to strip fields the caller's roles don't permit.
 
 See [docs/rbac.md](docs/rbac.md) for the full permission model.
 
@@ -314,6 +315,7 @@ All values can be set via environment variables or a YAML file (`CONFIG_FILE=pat
 | `FEATURE_FLAG_REFRESH_TTL` | `30s` | Feature flag cache refresh interval (min `1s`) |
 | `ENV_VAR_REFRESH_TTL` | `30s` | Dynamic env var cache refresh interval (min `1s`) |
 | `API_TOKEN_REFRESH_TTL` | `30s` | API token cache refresh interval (min `1s`) |
+| `LOG_LEVEL` | `info` | Log level (`trace` \| `debug` \| `info` \| `warn` \| `error` \| `fatal`) |
 | `DD_API_KEY` | — | Datadog API key (optional; disables APM if unset) |
 | `DD_ENV` | — | Datadog environment tag |
 | `DD_SERVICE` | — | Datadog service name |
@@ -337,7 +339,7 @@ make vet
 make lint
 ```
 
-Tests use hand-rolled mocks (struct with function fields) and `testutil.NewMockDB` for sqlx+sqlmock. No external services are required for unit tests — `observability.InitNoop()` is called automatically from `testutil.init()`.
+Tests use hand-rolled mocks (struct with function fields) and `testutil.NewMockDB` for sqlx+sqlmock. No external services are required for unit tests — `observability.InitNoop()` is called automatically from `testutil.init()`. All handler and middleware constructors receive a `logging.Noop()` logger in tests to suppress output.
 
 ---
 
@@ -348,13 +350,13 @@ When `DD_API_KEY` is set, the following data flows to Datadog:
 | Signal | What you see |
 |--------|--------------|
 | **APM** | Distributed traces: HTTP span → session span → DB span; service map |
-| **Logs** | Structured JSON with `dd.trace_id` on every line (log–trace correlation) |
+| **Logs** | Structured JSON via zerolog with `dd.trace_id` on every line (log–trace correlation) |
 | **Metrics** | `golang-clean-arch.http.request.count` tagged by method/route/status |
 | **Profiler** | CPU + heap profiles (always-on, low overhead) |
 | **DBM** | SQL queries linked back to APM spans |
 | **Error Tracking** | 5xx responses captured with stack trace |
 
-In development (`ENV=development`) the tracer runs in no-op mode — no agent required.
+In development (`ENV=development`) the tracer runs in no-op mode — no agent required. Logs use `zerolog.ConsoleWriter` for human-readable output; in production they emit JSON to stdout.
 
 ---
 

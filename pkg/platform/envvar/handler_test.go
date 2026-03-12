@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
@@ -21,7 +22,7 @@ func newTestHandler(t *testing.T) (*Handler, sqlmock.Sqlmock) {
 	repo := NewRepository(db)
 	mc := newMockCache()
 	svc := newServiceWithStore(repo, mc, 30*time.Second)
-	return NewHandler(svc), mock
+	return NewHandler(svc, logging.Noop()), mock
 }
 
 func TestHandler_CreateEnv_OK(t *testing.T) {

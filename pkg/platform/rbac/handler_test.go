@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
@@ -19,7 +20,7 @@ import (
 
 func TestHandler_CreateRole_OK(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles",
 		`{"name":"editor","description":"Can edit","permissions":[]}`, AllFields())
 
@@ -29,7 +30,7 @@ func TestHandler_CreateRole_OK(t *testing.T) {
 
 func TestHandler_CreateRole_EmptyName(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles", `{"name":""}`, AllFields())
 
 	require.NoError(t, h.CreateRole(c))
@@ -44,7 +45,7 @@ func TestHandler_ListRoles_OK(t *testing.T) {
 			return []RoleReadModel{{ID: 1, Name: "admin"}}, nil
 		},
 	})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles", "", AllFields())
 
 	require.NoError(t, h.ListRoles(c))
@@ -63,7 +64,7 @@ func TestHandler_GetRole_Found(t *testing.T) {
 			return nil, nil
 		},
 	})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles/1", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
@@ -78,7 +79,7 @@ func TestHandler_GetRole_NotFound(t *testing.T) {
 			return nil, nil
 		},
 	})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/roles/999", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("999")
@@ -91,7 +92,7 @@ func TestHandler_GetRole_NotFound(t *testing.T) {
 
 func TestHandler_DeleteRole_OK(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("1")
@@ -104,7 +105,7 @@ func TestHandler_DeleteRole_OK(t *testing.T) {
 
 func TestHandler_GrantPermission_OK(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodPost, "/admin/roles/1/permissions",
 		`{"module":"orders","action":"read","fields":{"mode":"all"}}`, AllFields())
 	c.SetParamNames("id")
@@ -118,7 +119,7 @@ func TestHandler_GrantPermission_OK(t *testing.T) {
 
 func TestHandler_RevokePermission_OK(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1/permissions/orders:read", "", AllFields())
 	c.SetParamNames("id", "perm")
 	c.SetParamValues("1", "orders:read")
@@ -129,7 +130,7 @@ func TestHandler_RevokePermission_OK(t *testing.T) {
 
 func TestHandler_RevokePermission_BadPerm(t *testing.T) {
 	svc := NewService(&mockEventStore{}, &mockRepo{})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodDelete, "/admin/roles/1/permissions/bad", "", AllFields())
 	c.SetParamNames("id", "perm")
 	c.SetParamValues("1", "bad")
@@ -146,7 +147,7 @@ func TestHandler_ListUserRoles_OK(t *testing.T) {
 			return []string{"role_1", "role_2"}, nil
 		},
 	})
-	h := NewHandler(svc, nil)
+	h := NewHandler(svc, nil, logging.Noop())
 	c, rec := testutil.AuthedEchoCtxWithPolicy(http.MethodGet, "/admin/users/u1/roles", "", AllFields())
 	c.SetParamNames("id")
 	c.SetParamValues("u1")
@@ -168,7 +169,7 @@ func TestHandler_GetAuditHistory_OK(t *testing.T) {
 		WillReturnRows(rows)
 
 	svc := NewService(&mockEventStore{}, &mockRepo{})
-	h := NewHandler(svc, db)
+	h := NewHandler(svc, db, logging.Noop())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/admin/audit/user/usr_1", nil)
@@ -190,7 +191,7 @@ func TestHandler_GetAuditHistory_DBError(t *testing.T) {
 		WillReturnError(assert.AnError)
 
 	svc := NewService(&mockEventStore{}, &mockRepo{})
-	h := NewHandler(svc, db)
+	h := NewHandler(svc, db, logging.Noop())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/admin/audit/user/bad_id", nil)

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
@@ -26,7 +27,7 @@ func newTestHandler(repo ReadRepository, store *mockEventStore, userProv UserPro
 	if userProv == nil {
 		userProv = &mockUserProvider{}
 	}
-	return NewHandler(NewService(store, repo, userProv))
+	return NewHandler(NewService(store, repo, userProv), logging.Noop())
 }
 
 // --- Create ---

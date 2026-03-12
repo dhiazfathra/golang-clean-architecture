@@ -10,6 +10,7 @@ import (
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/user"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 )
 
@@ -42,7 +43,7 @@ func newTestDeps() (*user.Handler, *rbac.Service) {
 func TestRegisterRoutes(t *testing.T) {
 	e := echo.New()
 	mockHandler, rbacSvc := newTestDeps()
-	user.RegisterRoutes(e.Group(""), mockHandler, rbacSvc)
+	user.RegisterRoutes(e.Group(""), mockHandler, rbacSvc, logging.Noop())
 
 	runRouteTests(t, e, []routeTestCase{
 		{"Create user route exists", http.MethodPost, "/users", http.StatusForbidden},
@@ -55,7 +56,7 @@ func TestRegisterRoutes(t *testing.T) {
 func TestRegisterAdminRoutes(t *testing.T) {
 	e := echo.New()
 	mockHandler, rbacSvc := newTestDeps()
-	user.RegisterAdminRoutes(e.Group("/admin"), mockHandler, rbacSvc)
+	user.RegisterAdminRoutes(e.Group("/admin"), mockHandler, rbacSvc, logging.Noop())
 
 	runRouteTests(t, e, []routeTestCase{
 		{"Admin get user by ID route exists", http.MethodGet, "/admin/users/123", http.StatusForbidden},

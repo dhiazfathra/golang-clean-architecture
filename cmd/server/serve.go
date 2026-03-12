@@ -10,6 +10,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 	"github.com/valkey-io/valkey-go"
 
 	goapi "github.com/dhiazfathra/golang-clean-architecture/api"
@@ -42,14 +43,14 @@ func serve(quit <-chan os.Signal, wire wireFn) error {
 	defer cleanup()
 
 	e := setupRouter(deps)
-	return startAndAwaitShutdown(e, cfg.ListenAddr, quit)
+	return startAndAwaitShutdown(e, cfg.ListenAddr, quit, deps.Logger)
 }
 
 // startAndAwaitShutdown starts e in a goroutine, waits for a quit signal or a
 // hard server error, then performs a 30-second graceful shutdown.
 // It is its own function so tests can drive it with a synthetic signal channel
 // and a pre-configured Echo instance — no real infrastructure required.
-func startAndAwaitShutdown(e *echo.Echo, addr string, quit <-chan os.Signal) error {
+func startAndAwaitShutdown(e *echo.Echo, addr string, quit <-chan os.Signal, logger zerolog.Logger) error {
 	serverErr := make(chan error, 1)
 
 	go func() {
@@ -65,7 +66,7 @@ func startAndAwaitShutdown(e *echo.Echo, addr string, quit <-chan os.Signal) err
 		// normal shutdown path — fall through
 	}
 
-	e.Logger.Info("shutting down server...")
+	logger.Info().Msg("shutting down server...")
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
@@ -74,7 +75,7 @@ func startAndAwaitShutdown(e *echo.Echo, addr string, quit <-chan os.Signal) err
 		return fmt.Errorf("shutdown: %w", err)
 	}
 
-	e.Logger.Info("server gracefully stopped")
+	logger.Info().Msg("server gracefully stopped")
 	return nil
 }
 
@@ -87,6 +88,7 @@ type RouterDeps struct {
 	Cfg          config.Config
 	DB           *sqlx.DB
 	VK           valkey.Client
+	Logger       zerolog.Logger
 	SessionStore session.SessionStore
 	AuthSvc      *auth.Service
 	RBACSvc      *rbac.Service
@@ -107,30 +109,31 @@ func setupRouter(deps RouterDeps) *echo.Echo {
 	protected := v1.Group("")
 	protected.Use(session.RequireSession(deps.SessionStore))
 
+	l := deps.Logger
 	adminGroup := protected.Group("/admin")
-	rbacHandler := rbac.NewHandler(deps.RBACSvc, deps.DB)
-	userHandler := user.NewHandler(deps.UserSvc, deps.DB)
+	rbacHandler := rbac.NewHandler(deps.RBACSvc, deps.DB, l)
+	userHandler := user.NewHandler(deps.UserSvc, deps.DB, l)
 
 	auth.RegisterRoutes(public, protected, auth.NewHandler(deps.AuthSvc))
-	rbac.RegisterRoutes(adminGroup, rbacHandler, deps.RBACSvc)
-	user.RegisterRoutes(protected, userHandler, deps.RBACSvc)
-	user.RegisterAdminRoutes(adminGroup, userHandler, deps.RBACSvc)
-	order.RegisterRoutes(protected, order.NewHandler(deps.OrderSvc), deps.RBACSvc)
+	rbac.RegisterRoutes(adminGroup, rbacHandler, deps.RBACSvc, l)
+	user.RegisterRoutes(protected, userHandler, deps.RBACSvc, l)
+	user.RegisterAdminRoutes(adminGroup, userHandler, deps.RBACSvc, l)
+	order.RegisterRoutes(protected, order.NewHandler(deps.OrderSvc, l), deps.RBACSvc, l)
 
 	// Multi-auth group: accepts both session cookies and Bearer tokens.
 	multiAuth := v1.Group("")
 	multiAuth.Use(session.RequireMultiAuth(deps.SessionStore, deps.TokenSvc))
 	multiAuthAdmin := multiAuth.Group("/admin")
 
-	ffHandler := featureflag.NewHandler(deps.FFSvc)
-	featureflag.RegisterAdminRoutes(multiAuthAdmin, ffHandler, deps.RBACSvc)
+	ffHandler := featureflag.NewHandler(deps.FFSvc, l)
+	featureflag.RegisterAdminRoutes(multiAuthAdmin, ffHandler, deps.RBACSvc, l)
 
-	evHandler := envvar.NewHandler(deps.EVSvc)
-	envvar.RegisterRoutes(multiAuth, evHandler, deps.RBACSvc)
+	evHandler := envvar.NewHandler(deps.EVSvc, l)
+	envvar.RegisterRoutes(multiAuth, evHandler, deps.RBACSvc, l)
 
 	// API token management — session-only (under original adminGroup).
-	tokenHandler := apitoken.NewHandler(deps.TokenSvc)
-	apitoken.RegisterRoutes(adminGroup, tokenHandler, deps.RBACSvc)
+	tokenHandler := apitoken.NewHandler(deps.TokenSvc, l)
+	apitoken.RegisterRoutes(adminGroup, tokenHandler, deps.RBACSvc, l)
 
 	// Health probes — on root Echo instance, no auth middleware.
 	healthHandler := health.NewHandler(deps.DB, deps.VK)

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
@@ -28,7 +29,7 @@ func newHandlerWithMocks(repo ReadRepository, store *mockEventStore) *Handler {
 		repo = &mockReadRepo{}
 	}
 	svc := NewService(store, repo, &mockHasher{})
-	return NewHandler(svc, nil)
+	return NewHandler(svc, nil, logging.Noop())
 }
 
 // --- GetByID ---
@@ -155,7 +156,7 @@ func TestUserHandler_AdminGetByID_OK(t *testing.T) {
 		WillReturnRows(rows)
 
 	svc := NewService(&mockEventStore{}, &mockReadRepo{}, &mockHasher{})
-	h := NewHandler(svc, db)
+	h := NewHandler(svc, db, logging.Noop())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/admin/users/1", nil)
@@ -177,7 +178,7 @@ func TestUserHandler_AdminGetByID_NotFound(t *testing.T) {
 		WillReturnError(sql.ErrNoRows)
 
 	svc := NewService(&mockEventStore{}, &mockReadRepo{}, &mockHasher{})
-	h := NewHandler(svc, db)
+	h := NewHandler(svc, db, logging.Noop())
 
 	e := echo.New()
 	req := httptest.NewRequest(http.MethodGet, "/admin/users/999", nil)

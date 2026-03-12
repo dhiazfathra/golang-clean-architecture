@@ -4,10 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/rs/zerolog"
 )
 
 type Projector interface {
@@ -20,10 +20,11 @@ type ProjectionRunner struct {
 	store      EventStore
 	projectors []Projector
 	interval   time.Duration
+	logger     zerolog.Logger
 }
 
-func NewProjectionRunner(db *sqlx.DB, store EventStore) *ProjectionRunner {
-	return &ProjectionRunner{db: db, store: store, interval: 500 * time.Millisecond}
+func NewProjectionRunner(db *sqlx.DB, store EventStore, logger zerolog.Logger) *ProjectionRunner {
+	return &ProjectionRunner{db: db, store: store, interval: 500 * time.Millisecond, logger: logger}
 }
 
 func (r *ProjectionRunner) Register(p Projector) { r.projectors = append(r.projectors, p) }
@@ -60,7 +61,7 @@ func (r *ProjectionRunner) runProjector(ctx context.Context, p Projector) {
 			return
 		case <-ticker.C:
 			if _, err := r.poll(ctx, p); err != nil {
-				slog.Error("projection poll error", "projector", p.Name(), "error", err)
+				r.logger.Error().Err(err).Str("projector", p.Name()).Msg("projection poll error")
 			}
 		}
 	}
@@ -98,7 +99,7 @@ func (r *ProjectionRunner) poll(ctx context.Context, p Projector) (int, error) {
 		}
 		e, err := Deserialise(evType, data)
 		if err != nil {
-			slog.Warn("unknown event type, skipping", "type", evType, "id", id)
+			r.logger.Warn().Str("type", evType).Int64("id", id).Msg("unknown event type, skipping")
 			lastID = id
 			n++
 			continue

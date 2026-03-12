@@ -3,6 +3,7 @@ package user
 import (
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
@@ -11,11 +12,14 @@ import (
 )
 
 type Handler struct {
-	svc *Service
-	db  *sqlx.DB
+	svc    *Service
+	db     *sqlx.DB
+	logger zerolog.Logger
 }
 
-func NewHandler(svc *Service, db *sqlx.DB) *Handler { return &Handler{svc: svc, db: db} }
+func NewHandler(svc *Service, db *sqlx.DB, logger zerolog.Logger) *Handler {
+	return &Handler{svc: svc, db: db, logger: logger}
+}
 
 type createUserReq struct {
 	Email    string `json:"email"`
@@ -32,7 +36,7 @@ func (h *Handler) Create(c echo.Context) error {
 		Email: req.Email, Password: req.Password, Actor: actor,
 	})
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return httputil.Created(c, map[string]string{"id": id})
 }
@@ -52,7 +56,7 @@ func (h *Handler) List(c echo.Context) error {
 	}
 	page, err := h.svc.List(c.Request().Context(), req)
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return httputil.OK(c, rbac.FilterResponse(c, page))
 }
@@ -60,7 +64,7 @@ func (h *Handler) List(c echo.Context) error {
 func (h *Handler) Delete(c echo.Context) error {
 	actor := session.UserID(c)
 	if err := h.svc.DeleteUser(c.Request().Context(), c.Param("id"), actor); err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return httputil.OK(c, map[string]string{"message": "deleted"})
 }

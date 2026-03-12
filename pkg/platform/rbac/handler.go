@@ -7,6 +7,7 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
@@ -23,11 +24,14 @@ type AuditEvent struct {
 }
 
 type Handler struct {
-	svc *Service
-	db  *sqlx.DB
+	svc    *Service
+	db     *sqlx.DB
+	logger zerolog.Logger
 }
 
-func NewHandler(svc *Service, db *sqlx.DB) *Handler { return &Handler{svc: svc, db: db} }
+func NewHandler(svc *Service, db *sqlx.DB, logger zerolog.Logger) *Handler {
+	return &Handler{svc: svc, db: db, logger: logger}
+}
 
 // POST /admin/roles.
 func (h *Handler) CreateRole(c echo.Context) error {
@@ -49,7 +53,7 @@ func (h *Handler) CreateRole(c echo.Context) error {
 		Actor:       session.UserID(c),
 	}
 	if err := h.svc.CreateRole(c.Request().Context(), cmd); err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusCreated, map[string]string{"id": "role_" + body.Name})
 }
@@ -58,7 +62,7 @@ func (h *Handler) CreateRole(c echo.Context) error {
 func (h *Handler) ListRoles(c echo.Context) error {
 	roles, err := h.svc.ListRoles(c.Request().Context())
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return httputil.OK(c, FilterResponse(c, roles))
 }
@@ -67,7 +71,7 @@ func (h *Handler) ListRoles(c echo.Context) error {
 func (h *Handler) GetRole(c echo.Context) error {
 	role, err := h.svc.GetRoleByID(c.Request().Context(), c.Param("id"))
 	if err != nil {
-		return httputil.NotFoundOrError(c, err)
+		return httputil.NotFoundOrError(c, h.logger, err)
 	}
 	if role == nil {
 		return httputil.NotFound(c)
@@ -78,7 +82,7 @@ func (h *Handler) GetRole(c echo.Context) error {
 // DELETE /admin/roles/:id.
 func (h *Handler) DeleteRole(c echo.Context) error {
 	if err := h.svc.DeleteRole(c.Request().Context(), c.Param("id"), session.UserID(c)); err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -90,7 +94,7 @@ func (h *Handler) GrantPermission(c echo.Context) error {
 		return httputil.BadRequest(c, "invalid request body")
 	}
 	if err := h.svc.GrantPermission(c.Request().Context(), c.Param("id"), perm, session.UserID(c)); err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -102,7 +106,7 @@ func (h *Handler) RevokePermission(c echo.Context) error {
 		return httputil.BadRequest(c, "perm must be module:action")
 	}
 	if err := h.svc.RevokePermission(c.Request().Context(), c.Param("id"), module, action, session.UserID(c)); err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
@@ -111,7 +115,7 @@ func (h *Handler) RevokePermission(c echo.Context) error {
 func (h *Handler) ListUserRoles(c echo.Context) error {
 	roleIDs, err := h.svc.GetRolesForUser(c.Request().Context(), c.Param("id"))
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return httputil.OK(c, map[string][]string{"role_ids": roleIDs})
 }
@@ -128,7 +132,7 @@ func (h *Handler) GetAuditHistory(c echo.Context) error {
 		WHERE aggregate_type = $1 AND aggregate_id = $2
 		ORDER BY version ASC`, aggType, aggID)
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return httputil.OK(c, events)
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"{{.ModPath}}/pkg/platform/eventstore"
+	"{{.ModPath}}/pkg/platform/logging"
 )
 
 // Handler tests use real *Service backed by hand-rolled mock store/repo.
@@ -21,7 +22,7 @@ import (
 
 // newTestHandler creates a Handler whose Service is backed by the provided mocks.
 func newTestHandler(store eventstore.EventStore, repo ReadRepository) *Handler {
-	return NewHandler(NewService(store, repo))
+	return NewHandler(NewService(store, repo), logging.Noop())
 }
 
 // echoCtx creates a minimal Echo context for handler testing.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/module/order"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 )
 
@@ -20,7 +21,7 @@ func TestRegisterRoutes(t *testing.T) {
 	mockHandler := &order.Handler{}                                                      // or use a mock if Handler has dependencies
 	rbacSvc := rbac.NewService(&eventstore.MockEventStore{}, &rbac.MockReadRepository{}) // or mock it
 
-	order.RegisterRoutes(g, mockHandler, rbacSvc)
+	order.RegisterRoutes(g, mockHandler, rbacSvc, logging.Noop())
 
 	tests := []struct {
 		name           string

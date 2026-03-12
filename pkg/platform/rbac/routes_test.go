@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/eventstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 )
 
@@ -19,7 +20,7 @@ func TestRegisterRoutes(t *testing.T) {
 	mockHandler := &rbac.Handler{}
 	rbacSvc := rbac.NewService(&eventstore.MockEventStore{}, &rbac.MockReadRepository{})
 
-	rbac.RegisterRoutes(g, mockHandler, rbacSvc)
+	rbac.RegisterRoutes(g, mockHandler, rbacSvc, logging.Noop())
 
 	tests := []struct {
 		name           string

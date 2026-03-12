@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/observability"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
@@ -438,7 +439,7 @@ func (m *mockProjector) Handle(ctx context.Context, event Event) error { return 
 func TestNewProjectionRunner(t *testing.T) {
 	db, _ := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 	assert.NotNil(t, r)
 	assert.Equal(t, 500*time.Millisecond, r.interval)
 }
@@ -452,7 +453,7 @@ func pollCols() *sqlmock.Rows {
 
 func TestProjectionRunnerRegister(t *testing.T) {
 	db, _ := testutil.NewMockDB(t)
-	r := NewProjectionRunner(db, NewPgStore(db))
+	r := NewProjectionRunner(db, NewPgStore(db), logging.Noop())
 
 	p := &mockProjector{name: "test-proj"}
 	r.Register(p)
@@ -461,7 +462,7 @@ func TestProjectionRunnerRegister(t *testing.T) {
 
 func TestProjectionRunnerStartAndCancel(t *testing.T) {
 	db, _ := testutil.NewMockDB(t)
-	r := NewProjectionRunner(db, NewPgStore(db))
+	r := NewProjectionRunner(db, NewPgStore(db), logging.Noop())
 	r.interval = 10 * time.Millisecond
 
 	p := &mockProjector{name: "test-proj", handler: func(_ context.Context, _ Event) error { return nil }}
@@ -476,7 +477,7 @@ func TestProjectionRunnerStartAndCancel(t *testing.T) {
 
 func TestProjectionRunnerRunOnceSuccess(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
-	r := NewProjectionRunner(db, NewPgStore(db))
+	r := NewProjectionRunner(db, NewPgStore(db), logging.Noop())
 
 	p := &mockProjector{name: "ro-proj", handler: func(_ context.Context, _ Event) error { return nil }}
 	r.Register(p)
@@ -494,7 +495,7 @@ func TestProjectionRunnerRunOnceSuccess(t *testing.T) {
 
 func TestProjectionRunnerRunOnceError(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
-	r := NewProjectionRunner(db, NewPgStore(db))
+	r := NewProjectionRunner(db, NewPgStore(db), logging.Noop())
 
 	p := &mockProjector{name: "ro-err-proj", handler: func(_ context.Context, _ Event) error { return nil }}
 	r.Register(p)
@@ -513,7 +514,7 @@ func TestProjectionRunnerPollFirstRun(t *testing.T) {
 	Register[*testEvent]("PollEvent")
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 
 	handled := false
 	p := &mockProjector{
@@ -546,7 +547,7 @@ func TestProjectionRunnerPollFirstRun(t *testing.T) {
 func TestProjectionRunnerPollExistingCursor(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 
 	p := &mockProjector{
 		name:    "poll-proj2",
@@ -570,7 +571,7 @@ func TestProjectionRunnerPollExistingCursor(t *testing.T) {
 func TestProjectionRunnerPollInitCursorError(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 
 	p := &mockProjector{name: "fail-proj"}
 
@@ -586,7 +587,7 @@ func TestProjectionRunnerPollInitCursorError(t *testing.T) {
 func TestProjectionRunnerPollQueryError(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 
 	p := &mockProjector{name: "qerr-proj"}
 
@@ -604,7 +605,7 @@ func TestProjectionRunnerPollHandleError(t *testing.T) {
 	Register[*testEvent]("HandleErr")
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 
 	p := &mockProjector{
 		name:    "herr-proj",
@@ -627,7 +628,7 @@ func TestProjectionRunnerPollHandleError(t *testing.T) {
 func TestProjectionRunnerPollUnknownEventSkipped(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 
 	p := &mockProjector{
 		name:    "skip-proj",
@@ -651,7 +652,7 @@ func TestProjectionRunnerPollUnknownEventSkipped(t *testing.T) {
 func TestProjectionRunnerPollScanError(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 
 	p := &mockProjector{name: "scan-proj"}
 
@@ -670,7 +671,7 @@ func TestProjectionRunnerPollRowsErr(t *testing.T) {
 	Register[*testEvent]("PollRowsErr")
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 
 	p := &mockProjector{
 		name:    "rerr-proj",
@@ -694,7 +695,7 @@ func TestProjectionRunnerPollRowsErr(t *testing.T) {
 func TestProjectionRunnerPollUpdateCursorError(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
-	r := NewProjectionRunner(db, store)
+	r := NewProjectionRunner(db, store, logging.Noop())
 
 	p := &mockProjector{name: "upd-proj", handler: func(_ context.Context, _ Event) error { return nil }}
 

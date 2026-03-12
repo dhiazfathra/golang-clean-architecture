@@ -2,15 +2,21 @@ package order
 
 import (
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/rbac"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
-type Handler struct{ svc *Service }
+type Handler struct {
+	svc    *Service
+	logger zerolog.Logger
+}
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *Service, logger zerolog.Logger) *Handler {
+	return &Handler{svc: svc, logger: logger}
+}
 
 type createOrderReq struct {
 	UserID string  `json:"user_id"`
@@ -29,7 +35,7 @@ func (h *Handler) Create(c echo.Context) error {
 		Actor:  actor,
 	})
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return httputil.Created(c, map[string]string{"id": id})
 }
@@ -49,7 +55,7 @@ func (h *Handler) List(c echo.Context) error {
 	}
 	page, err := h.svc.List(c.Request().Context(), req)
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return httputil.OK(c, rbac.FilterResponse(c, page))
 }
@@ -57,7 +63,7 @@ func (h *Handler) List(c echo.Context) error {
 func (h *Handler) Delete(c echo.Context) error {
 	actor := session.UserID(c)
 	if err := h.svc.DeleteOrder(c.Request().Context(), c.Param("id"), actor); err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return httputil.OK(c, map[string]string{"message": "deleted"})
 }

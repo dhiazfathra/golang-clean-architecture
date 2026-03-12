@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/kvstore"
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/testutil"
 )
 
@@ -16,11 +17,11 @@ func TestRegisterAdminRoutes(t *testing.T) {
 	repo := NewRepository(db)
 	mc := kvstore.NewMockCache()
 	svc := newServiceWithStore(repo, mc, 30*time.Second)
-	h := NewHandler(svc)
+	h := NewHandler(svc, logging.Noop())
 
 	e := echo.New()
 	g := e.Group("/admin")
-	RegisterAdminRoutes(g, h, nil)
+	RegisterAdminRoutes(g, h, nil, logging.Noop())
 
 	routes := e.Routes()
 	paths := make(map[string]bool)

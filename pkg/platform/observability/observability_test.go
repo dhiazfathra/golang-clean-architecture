@@ -12,6 +12,8 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/logging"
 )
 
 func TestInitNoop(t *testing.T) {
@@ -28,7 +30,7 @@ func TestInit(t *testing.T) {
 		Env:             "test",
 		StatsdAddr:      "localhost:8125",
 		StatsdNamespace: "test.",
-	})
+	}, logging.Noop())
 	defer Stop()
 }
 
@@ -89,7 +91,7 @@ func TestRequestMetrics500(t *testing.T) {
 func TestReportError_NoSpan(t *testing.T) {
 	InitNoop()
 	// No span in context — should not panic
-	ReportError(context.Background(), errors.New("test error"))
+	ReportError(context.Background(), logging.Noop(), errors.New("test error"))
 }
 
 func TestReportError_WithSpan(t *testing.T) {
@@ -100,7 +102,7 @@ func TestReportError_WithSpan(t *testing.T) {
 	ctx := ddtracer.ContextWithSpan(context.Background(), span)
 	defer span.Finish()
 
-	ReportError(ctx, errors.New("test error"))
+	ReportError(ctx, logging.Noop(), errors.New("test error"))
 }
 
 func TestNewHTTPClient(t *testing.T) {

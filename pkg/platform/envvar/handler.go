@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/database"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
@@ -11,11 +12,12 @@ import (
 )
 
 type Handler struct {
-	svc *Service
+	svc    *Service
+	logger zerolog.Logger
 }
 
-func NewHandler(svc *Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *Service, logger zerolog.Logger) *Handler {
+	return &Handler{svc: svc, logger: logger}
 }
 
 type createEnvRequest struct {
@@ -97,7 +99,7 @@ func (h *Handler) CreateEnv(c echo.Context) error {
 	userID := session.UserID(c)
 	e, err := h.svc.Create(c.Request().Context(), req.Platform, req.Key, req.Value, userID)
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusCreated, envResponse{
 		StatusCode: http.StatusCreated, StatusMessage: "Created",
@@ -116,7 +118,7 @@ func (h *Handler) GetEnv(c echo.Context) error {
 				Data: map[string]string{"error": err.Error()},
 			})
 		}
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusOK, envResponse{
 		StatusCode: http.StatusOK, StatusMessage: "OK",
@@ -133,7 +135,7 @@ func (h *Handler) GetEnvsByPlatform(c echo.Context) error {
 	req.Normalise("key")
 	page, err := h.svc.ListByPlatform(c.Request().Context(), platform, req)
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	data := make([]envDataResponse, len(page.Items))
 	for i, e := range page.Items {
@@ -178,7 +180,7 @@ func (h *Handler) UpdateEnv(c echo.Context) error {
 				Data: map[string]string{"error": err.Error()},
 			})
 		}
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusOK, envResponse{
 		StatusCode: http.StatusOK, StatusMessage: "OK",
@@ -197,7 +199,7 @@ func (h *Handler) DeleteEnv(c echo.Context) error {
 				Data: map[string]string{"error": err.Error()},
 			})
 		}
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusOK, envResponse{
 		StatusCode: http.StatusOK, StatusMessage: "OK",

@@ -4,17 +4,19 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/rs/zerolog"
 
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/httputil"
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/session"
 )
 
 type Handler struct {
-	svc *Service
+	svc    *Service
+	logger zerolog.Logger
 }
 
-func NewHandler(svc *Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *Service, logger zerolog.Logger) *Handler {
+	return &Handler{svc: svc, logger: logger}
 }
 
 type createFlagRequest struct {
@@ -30,7 +32,7 @@ type toggleRequest struct {
 func (h *Handler) List(c echo.Context) error {
 	flags, err := h.svc.List(c.Request().Context())
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusOK, flags)
 }
@@ -46,7 +48,7 @@ func (h *Handler) Create(c echo.Context) error {
 	userID := session.UserID(c)
 	f, err := h.svc.Create(c.Request().Context(), req.Key, req.Description, req.Enabled, userID)
 	if err != nil {
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusCreated, f)
 }
@@ -62,7 +64,7 @@ func (h *Handler) Toggle(c echo.Context) error {
 		if err.Error() == "feature flag not found" {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.JSON(http.StatusOK, map[string]string{"status": "updated"})
 }
@@ -74,7 +76,7 @@ func (h *Handler) Delete(c echo.Context) error {
 		if err.Error() == "feature flag not found" {
 			return c.JSON(http.StatusNotFound, map[string]string{"error": err.Error()})
 		}
-		return httputil.InternalError(c, err)
+		return httputil.InternalError(c, h.logger, err)
 	}
 	return c.NoContent(http.StatusNoContent)
 }
