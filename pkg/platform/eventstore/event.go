@@ -11,6 +11,7 @@ type Event interface {
 	Metadata() map[string]string
 }
 
+//nolint:recvcheck // TODO: migrate all receivers to pointer receivers to be consistent with SetEnvelope
 type BaseEvent struct {
 	aggID   string
 	aggType string
@@ -31,3 +32,18 @@ func (b BaseEvent) EventType() string           { return b.evType }
 func (b BaseEvent) Version() int                { return b.version }
 func (b BaseEvent) Timestamp() time.Time        { return b.ts }
 func (b BaseEvent) Metadata() map[string]string { return b.meta }
+
+// SetEnvelope populates the unexported envelope fields after deserialization.
+func (b *BaseEvent) SetEnvelope(aggID, aggType, evType string, version int, ts time.Time, meta map[string]string) {
+	b.aggID = aggID
+	b.aggType = aggType
+	b.evType = evType
+	b.version = version
+	b.ts = ts
+	b.meta = meta
+}
+
+// Enveloper is implemented by events embedding BaseEvent.
+type Enveloper interface {
+	SetEnvelope(aggID, aggType, evType string, version int, ts time.Time, meta map[string]string)
+}

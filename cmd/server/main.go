@@ -72,6 +72,17 @@ func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 	runner.Register(rbacProjector)
 	runner.Register(userProjector)
 	runner.Register(orderProjector)
+
+	// Seed before starting async projectors to avoid cursor races with RunOnce.
+	if err := seeder.Seed(ctx, rbacSvc, &seederUserAdapter{userSvc}, runner,
+		cfg.SeedSuperAdminPassword, cfg.SeedDefaultModulePassword); err != nil {
+		cancel()
+		db.Close()
+		vk.Close()
+		observability.Stop()
+		return RouterDeps{}, nil, fmt.Errorf("seeder: %w", err)
+	}
+
 	runner.Start(ctx)
 
 	ffRepo := featureflag.NewRepository(db)
@@ -85,15 +96,6 @@ func defaultWire(cfg *config.Config) (RouterDeps, func(), error) {
 	tokenRepo := apitoken.NewRepository(db)
 	tokenSvc := apitoken.NewService(tokenRepo, vk, cfg.APITokenRefreshTTL)
 	tokenSvc.StartRefresh(ctx)
-
-	if err := seeder.Seed(ctx, rbacSvc, &seederUserAdapter{userSvc},
-		cfg.SeedSuperAdminPassword, cfg.SeedDefaultModulePassword); err != nil {
-		cancel()
-		db.Close()
-		vk.Close()
-		observability.Stop()
-		return RouterDeps{}, nil, fmt.Errorf("seeder: %w", err)
-	}
 
 	cleanup := func() {
 		cancel()

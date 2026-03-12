@@ -395,3 +395,62 @@ func TestSeedModuleUsers_SkipsExistingUsers(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, createCalled, "CreateUser must not be called for existing user")
 }
+
+// --- mock flusher ---
+
+type mockFlusher struct {
+	RunOnceFn func(ctx context.Context) error
+}
+
+func (m *mockFlusher) RunOnce(ctx context.Context) error {
+	if m.RunOnceFn != nil {
+		return m.RunOnceFn(ctx)
+	}
+	return nil
+}
+
+// --- Seed (integration) ---
+
+func TestSeed_Success(t *testing.T) {
+	store := &mockEventStore{
+		AppendFn: func(_ context.Context, _ []eventstore.Event) error { return nil },
+	}
+	repo := &mockRepo{
+		GetRoleByNameFn: func(_ context.Context, name string) (*rbac.RoleReadModel, error) {
+			// Before flush: roles not found; after flush: roles exist.
+			return &rbac.RoleReadModel{ID: 1, Name: name}, nil
+		},
+	}
+	svc := newRbacService(store, repo)
+	userSvc := &mockUserCreator{
+		GetByEmailFn: func(_ context.Context, _ string) (*seeder.UserRecord, error) {
+			return &seeder.UserRecord{ID: "x", Email: "exists"}, nil // already exists
+		},
+	}
+	flusher := &mockFlusher{}
+
+	err := seeder.Seed(context.Background(), svc, userSvc, flusher, "pw", "pw")
+	require.NoError(t, err)
+}
+
+func TestSeed_FlusherError(t *testing.T) {
+	store := &mockEventStore{
+		AppendFn: func(_ context.Context, _ []eventstore.Event) error { return nil },
+	}
+	repo := &mockRepo{
+		GetRoleByNameFn: func(_ context.Context, name string) (*rbac.RoleReadModel, error) {
+			return &rbac.RoleReadModel{ID: 1, Name: name}, nil
+		},
+	}
+	svc := newRbacService(store, repo)
+	userSvc := &mockUserCreator{}
+	flusher := &mockFlusher{
+		RunOnceFn: func(_ context.Context) error {
+			return assert.AnError
+		},
+	}
+
+	err := seeder.Seed(context.Background(), svc, userSvc, flusher, "pw", "pw")
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "flush projections")
+}

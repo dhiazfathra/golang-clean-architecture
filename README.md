@@ -121,11 +121,23 @@ HTTP request
 ### CQRS Read Path (async projection)
 
 ```
-ProjectionRunner (poll loop, 200ms)
+ProjectionRunner (poll loop, 500ms)
   → EventStore.LoadUnprojected(projectorID)
     → Projector.Project(event)  [UPSERT into read-model table]
   → Response: Handler → rbac.FilterResponse → JSON
 ```
+
+### Seeder & Synchronous Projection Flush
+
+The seeder creates roles and users via event sourcing. Because projections are async,
+`ProjectionRunner.RunOnce(ctx)` is called to synchronously drain all pending events
+into the read models before the seeder queries them. The flush runs twice:
+
+1. **Pre-seed** — projects leftover events from prior runs so idempotency checks work.
+2. **Post-roles** — projects newly created role events so user seeding can look up roles.
+
+`runner.Start(ctx)` is deferred until after seeding completes to avoid cursor races
+between the async poll goroutines and `RunOnce`.
 
 ### Shared Cache Layer (`pkg/platform/kvstore`)
 

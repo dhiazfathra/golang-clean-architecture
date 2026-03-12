@@ -23,7 +23,7 @@ migrate:
 	done
 
 seed:
-	SEED_ONLY=true go run cmd/server/main.go
+	SEED_ONLY=true go run ./cmd/server/...
 
 generate:
 	go run cmd/generate/main.go -module=$(module) -fields=$(fields)
@@ -33,7 +33,7 @@ lint:
 	golangci-lint run ./...
 
 run:
-	go run cmd/server/main.go
+	go run ./cmd/server/...
 
 vet:
 	go vet ./...

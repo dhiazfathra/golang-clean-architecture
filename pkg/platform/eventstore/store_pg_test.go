@@ -163,9 +163,9 @@ func TestPgLoadSuccess(t *testing.T) {
 	data, _ := json.Marshal(ev)
 	meta, _ := json.Marshal(ev.Metadata())
 
-	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"}).
-		AddRow("OrderCreated", data, meta)
-	mock.ExpectQuery(`SELECT event_type, data, metadata FROM events`).WillReturnRows(rows)
+	rows := sqlmock.NewRows([]string{"event_type", "version", "data", "metadata", "created_at"}).
+		AddRow("OrderCreated", 1, data, meta, time.Now())
+	mock.ExpectQuery(`SELECT event_type, version, data, metadata, created_at FROM events`).WillReturnRows(rows)
 
 	events, err := store.Load(context.Background(), "order", testAggregateID, 0)
 	require.NoError(t, err)
@@ -187,10 +187,10 @@ func TestPgLoadMultipleRows(t *testing.T) {
 	data2, _ := json.Marshal(ev2)
 	meta, _ := json.Marshal(map[string]string{})
 
-	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"}).
-		AddRow("OrderCreated", data1, meta).
-		AddRow("OrderShipped", data2, meta)
-	mock.ExpectQuery(`SELECT event_type, data, metadata FROM events`).WillReturnRows(rows)
+	rows := sqlmock.NewRows([]string{"event_type", "version", "data", "metadata", "created_at"}).
+		AddRow("OrderCreated", 1, data1, meta, time.Now()).
+		AddRow("OrderShipped", 2, data2, meta, time.Now())
+	mock.ExpectQuery(`SELECT event_type, version, data, metadata, created_at FROM events`).WillReturnRows(rows)
 
 	events, err := store.Load(context.Background(), "order", testAggregateID, 0)
 	require.NoError(t, err)
@@ -201,8 +201,8 @@ func TestPgLoadEmptyResult(t *testing.T) {
 	db, mock := newPgDB(t)
 	store := NewPgStore(db)
 
-	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"})
-	mock.ExpectQuery(`SELECT event_type, data, metadata FROM events`).WillReturnRows(rows)
+	rows := sqlmock.NewRows([]string{"event_type", "version", "data", "metadata", "created_at"})
+	mock.ExpectQuery(`SELECT event_type, version, data, metadata, created_at FROM events`).WillReturnRows(rows)
 
 	events, err := store.Load(context.Background(), "order", "no-such-id", 0)
 	require.NoError(t, err)
@@ -213,7 +213,7 @@ func TestPgLoadSqlErrNoRows(t *testing.T) {
 	db, mock := newPgDB(t)
 	store := NewPgStore(db)
 
-	mock.ExpectQuery(`SELECT event_type, data, metadata FROM events`).
+	mock.ExpectQuery(`SELECT event_type, version, data, metadata, created_at FROM events`).
 		WillReturnError(sql.ErrNoRows)
 
 	events, err := store.Load(context.Background(), "order", testAggregateID, 0)
@@ -225,7 +225,7 @@ func TestPgLoadQueryError(t *testing.T) {
 	db, mock := newPgDB(t)
 	store := NewPgStore(db)
 
-	mock.ExpectQuery(`SELECT event_type, data, metadata FROM events`).
+	mock.ExpectQuery(`SELECT event_type, version, data, metadata, created_at FROM events`).
 		WillReturnError(errors.New("db unavailable"))
 
 	_, err := store.Load(context.Background(), "order", testAggregateID, 0)
@@ -236,9 +236,9 @@ func TestPgLoadScanError(t *testing.T) {
 	db, mock := newPgDB(t)
 	store := NewPgStore(db)
 
-	// Only one column instead of three forces a scan error.
+	// Only one column instead of five forces a scan error.
 	rows := sqlmock.NewRows([]string{"event_type"}).AddRow("OrderCreated")
-	mock.ExpectQuery(`SELECT event_type, data, metadata FROM events`).WillReturnRows(rows)
+	mock.ExpectQuery(`SELECT event_type, version, data, metadata, created_at FROM events`).WillReturnRows(rows)
 
 	_, err := store.Load(context.Background(), "order", testAggregateID, 0)
 	assert.Error(t, err)
@@ -254,9 +254,9 @@ func TestPgLoadDeserialiseUnknownType(t *testing.T) {
 	data, _ := json.Marshal(newPgEvent("GhostEvent", 1))
 	meta, _ := json.Marshal(map[string]string{})
 
-	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"}).
-		AddRow("GhostEvent", data, meta)
-	mock.ExpectQuery(`SELECT event_type, data, metadata FROM events`).WillReturnRows(rows)
+	rows := sqlmock.NewRows([]string{"event_type", "version", "data", "metadata", "created_at"}).
+		AddRow("GhostEvent", 1, data, meta, time.Now())
+	mock.ExpectQuery(`SELECT event_type, version, data, metadata, created_at FROM events`).WillReturnRows(rows)
 
 	_, err := store.Load(context.Background(), "order", testAggregateID, 0)
 	assert.ErrorContains(t, err, "unknown event type")
@@ -269,9 +269,9 @@ func TestPgLoadDeserialiseInvalidJSON(t *testing.T) {
 	db, mock := newPgDB(t)
 	store := NewPgStore(db)
 
-	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"}).
-		AddRow("OrderCreated", []byte(`not-json`), []byte(`{}`))
-	mock.ExpectQuery(`SELECT event_type, data, metadata FROM events`).WillReturnRows(rows)
+	rows := sqlmock.NewRows([]string{"event_type", "version", "data", "metadata", "created_at"}).
+		AddRow("OrderCreated", 1, []byte(`not-json`), []byte(`{}`), time.Now())
+	mock.ExpectQuery(`SELECT event_type, version, data, metadata, created_at FROM events`).WillReturnRows(rows)
 
 	_, err := store.Load(context.Background(), "order", testAggregateID, 0)
 	assert.ErrorContains(t, err, "decode OrderCreated")
@@ -288,10 +288,10 @@ func TestPgLoadRowsError(t *testing.T) {
 	data, _ := json.Marshal(ev)
 	meta, _ := json.Marshal(map[string]string{})
 
-	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"}).
-		AddRow("OrderCreated", data, meta).
+	rows := sqlmock.NewRows([]string{"event_type", "version", "data", "metadata", "created_at"}).
+		AddRow("OrderCreated", 1, data, meta, time.Now()).
 		RowError(0, errors.New("network blip"))
-	mock.ExpectQuery(`SELECT event_type, data, metadata FROM events`).WillReturnRows(rows)
+	mock.ExpectQuery(`SELECT event_type, version, data, metadata, created_at FROM events`).WillReturnRows(rows)
 
 	_, err := store.Load(context.Background(), "order", testAggregateID, 0)
 	assert.ErrorContains(t, err, "network blip")

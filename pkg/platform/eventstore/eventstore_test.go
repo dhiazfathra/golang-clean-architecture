@@ -21,8 +21,8 @@ func init() {
 }
 
 const (
-	qSelectEvents    = "SELECT event_type, data, metadata FROM events"
-	qSelectAllEvents = "SELECT id, event_type, data, metadata FROM events"
+	qSelectEvents    = "SELECT event_type, version, data, metadata, created_at FROM events"
+	qSelectAllEvents = "SELECT id, aggregate_type, aggregate_id, event_type, version, data, metadata, created_at"
 	qSelectCursor    = "SELECT last_event_id FROM projection_cursors"
 )
 
@@ -231,8 +231,8 @@ func TestPgStoreLoad(t *testing.T) {
 	data, _ := json.Marshal(testEvent{Name: "loaded"})
 	meta, _ := json.Marshal(map[string]string{})
 
-	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"}).
-		AddRow("LoadTest", data, meta)
+	rows := sqlmock.NewRows([]string{"event_type", "version", "data", "metadata", "created_at"}).
+		AddRow("LoadTest", 1, data, meta, time.Now())
 	mock.ExpectQuery(qSelectEvents).
 		WithArgs("Order", "a1", 0).
 		WillReturnRows(rows)
@@ -285,8 +285,8 @@ func TestPgStoreLoadDeserialiseError(t *testing.T) {
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
-	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"}).
-		AddRow("UnknownEventType999", []byte(`{}`), []byte(`{}`))
+	rows := sqlmock.NewRows([]string{"event_type", "version", "data", "metadata", "created_at"}).
+		AddRow("UnknownEventType999", 1, []byte(`{}`), []byte(`{}`), time.Now())
 	mock.ExpectQuery(qSelectEvents).
 		WithArgs("Order", "a1", 0).
 		WillReturnRows(rows)
@@ -301,8 +301,8 @@ func TestPgStoreLoadRowsErr(t *testing.T) {
 	store := NewPgStore(db)
 
 	data, _ := json.Marshal(testEvent{Name: "x"})
-	rows := sqlmock.NewRows([]string{"event_type", "data", "metadata"}).
-		AddRow("RowsErrEvent", data, []byte(`{}`)).
+	rows := sqlmock.NewRows([]string{"event_type", "version", "data", "metadata", "created_at"}).
+		AddRow("RowsErrEvent", 1, data, []byte(`{}`), time.Now()).
 		RowError(0, errors.New("row iteration error"))
 
 	mock.ExpectQuery(qSelectEvents).
@@ -438,6 +438,13 @@ func TestNewProjectionRunner(t *testing.T) {
 	assert.Equal(t, 500*time.Millisecond, r.interval)
 }
 
+func pollCols() *sqlmock.Rows {
+	return sqlmock.NewRows([]string{
+		"id", "aggregate_type", "aggregate_id", "event_type",
+		"version", "data", "metadata", "created_at",
+	})
+}
+
 func TestProjectionRunnerRegister(t *testing.T) {
 	db, _ := testutil.NewMockDB(t)
 	r := NewProjectionRunner(db, NewPgStore(db))
@@ -462,6 +469,41 @@ func TestProjectionRunnerStartAndCancel(t *testing.T) {
 	cancel()
 }
 
+func TestProjectionRunnerRunOnceSuccess(t *testing.T) {
+	db, mock := testutil.NewMockDB(t)
+	r := NewProjectionRunner(db, NewPgStore(db))
+
+	p := &mockProjector{name: "ro-proj", handler: func(_ context.Context, _ Event) error { return nil }}
+	r.Register(p)
+
+	mock.ExpectQuery(qSelectCursor).
+		WillReturnRows(sqlmock.NewRows([]string{"last_event_id"}).AddRow(0))
+	mock.ExpectQuery(qSelectAllEvents).
+		WillReturnRows(pollCols())
+	mock.ExpectExec("UPDATE projection_cursors").
+		WillReturnResult(sqlmock.NewResult(1, 1))
+
+	err := r.RunOnce(context.Background())
+	require.NoError(t, err)
+}
+
+func TestProjectionRunnerRunOnceError(t *testing.T) {
+	db, mock := testutil.NewMockDB(t)
+	r := NewProjectionRunner(db, NewPgStore(db))
+
+	p := &mockProjector{name: "ro-err-proj", handler: func(_ context.Context, _ Event) error { return nil }}
+	r.Register(p)
+
+	mock.ExpectQuery(qSelectCursor).
+		WillReturnError(errors.New("cursor fail"))
+	mock.ExpectExec("INSERT INTO projection_cursors").
+		WillReturnError(errors.New("insert fail"))
+
+	err := r.RunOnce(context.Background())
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "run once ro-err-proj")
+}
+
 func TestProjectionRunnerPollFirstRun(t *testing.T) {
 	Register[testEvent]("PollEvent")
 	db, mock := testutil.NewMockDB(t)
@@ -484,14 +526,14 @@ func TestProjectionRunnerPollFirstRun(t *testing.T) {
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
 	data, _ := json.Marshal(testEvent{Name: "ev1"})
-	rows := sqlmock.NewRows([]string{"id", "event_type", "data", "metadata"}).
-		AddRow(1, "PollEvent", data, []byte(`{}`))
+	rows := pollCols().
+		AddRow(1, "Order", "a1", "PollEvent", 1, data, []byte(`{}`), time.Now())
 	mock.ExpectQuery(qSelectAllEvents).WillReturnRows(rows)
 
 	mock.ExpectExec("UPDATE projection_cursors").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	err := r.poll(context.Background(), p)
+	_, err := r.poll(context.Background(), p)
 	require.NoError(t, err)
 	assert.True(t, handled)
 }
@@ -511,12 +553,12 @@ func TestProjectionRunnerPollExistingCursor(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"last_event_id"}).AddRow(5))
 
 	mock.ExpectQuery(qSelectAllEvents).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "event_type", "data", "metadata"}))
+		WillReturnRows(pollCols())
 
 	mock.ExpectExec("UPDATE projection_cursors").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	err := r.poll(context.Background(), p)
+	_, err := r.poll(context.Background(), p)
 	require.NoError(t, err)
 }
 
@@ -531,7 +573,7 @@ func TestProjectionRunnerPollInitCursorError(t *testing.T) {
 	mock.ExpectExec("INSERT INTO projection_cursors").
 		WillReturnError(errors.New("insert fail"))
 
-	err := r.poll(context.Background(), p)
+	_, err := r.poll(context.Background(), p)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "init cursor")
 }
@@ -548,7 +590,7 @@ func TestProjectionRunnerPollQueryError(t *testing.T) {
 
 	mock.ExpectQuery(qSelectAllEvents).WillReturnError(errors.New("query fail"))
 
-	err := r.poll(context.Background(), p)
+	_, err := r.poll(context.Background(), p)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "poll events")
 }
@@ -569,10 +611,10 @@ func TestProjectionRunnerPollHandleError(t *testing.T) {
 
 	data, _ := json.Marshal(testEvent{Name: "x"})
 	mock.ExpectQuery(qSelectAllEvents).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "event_type", "data", "metadata"}).
-			AddRow(1, "HandleErr", data, []byte(`{}`)))
+		WillReturnRows(pollCols().
+			AddRow(1, "Order", "a1", "HandleErr", 1, data, []byte(`{}`), time.Now()))
 
-	err := r.poll(context.Background(), p)
+	_, err := r.poll(context.Background(), p)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "handle event")
 }
@@ -591,13 +633,13 @@ func TestProjectionRunnerPollUnknownEventSkipped(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"last_event_id"}).AddRow(0))
 
 	mock.ExpectQuery(qSelectAllEvents).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "event_type", "data", "metadata"}).
-			AddRow(1, "CompletelyUnknownEvent999", []byte(`{}`), []byte(`{}`)))
+		WillReturnRows(pollCols().
+			AddRow(1, "Order", "a1", "CompletelyUnknownEvent999", 1, []byte(`{}`), []byte(`{}`), time.Now()))
 
 	mock.ExpectExec("UPDATE projection_cursors").
 		WillReturnResult(sqlmock.NewResult(1, 1))
 
-	err := r.poll(context.Background(), p)
+	_, err := r.poll(context.Background(), p)
 	require.NoError(t, err)
 }
 
@@ -612,10 +654,10 @@ func TestProjectionRunnerPollScanError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"last_event_id"}).AddRow(0))
 
 	mock.ExpectQuery(qSelectAllEvents).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "event_type", "data", "metadata"}).
-			AddRow("not-an-int", "SomeEvent", nil, nil))
+		WillReturnRows(pollCols().
+			AddRow("not-an-int", "Order", "a1", "SomeEvent", 1, nil, nil, time.Now()))
 
-	err := r.poll(context.Background(), p)
+	_, err := r.poll(context.Background(), p)
 	assert.Error(t, err)
 }
 
@@ -634,13 +676,13 @@ func TestProjectionRunnerPollRowsErr(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"last_event_id"}).AddRow(0))
 
 	data, _ := json.Marshal(testEvent{Name: "x"})
-	rows := sqlmock.NewRows([]string{"id", "event_type", "data", "metadata"}).
-		AddRow(1, "PollRowsErr", data, []byte(`{}`)).
+	rows := pollCols().
+		AddRow(1, "Order", "a1", "PollRowsErr", 1, data, []byte(`{}`), time.Now()).
 		RowError(0, errors.New("rows iteration fail"))
 
 	mock.ExpectQuery(qSelectAllEvents).WillReturnRows(rows)
 
-	err := r.poll(context.Background(), p)
+	_, err := r.poll(context.Background(), p)
 	assert.Error(t, err)
 }
 
@@ -655,11 +697,11 @@ func TestProjectionRunnerPollUpdateCursorError(t *testing.T) {
 		WillReturnRows(sqlmock.NewRows([]string{"last_event_id"}).AddRow(0))
 
 	mock.ExpectQuery(qSelectAllEvents).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "event_type", "data", "metadata"}))
+		WillReturnRows(pollCols())
 
 	mock.ExpectExec("UPDATE projection_cursors").
 		WillReturnError(errors.New("update fail"))
 
-	err := r.poll(context.Background(), p)
+	_, err := r.poll(context.Background(), p)
 	assert.Error(t, err)
 }

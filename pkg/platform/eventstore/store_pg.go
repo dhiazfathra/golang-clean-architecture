@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jmoiron/sqlx"
 
@@ -52,7 +53,7 @@ func (s *pgStore) Append(ctx context.Context, events []Event) error {
 
 func (s *pgStore) Load(ctx context.Context, aggregateType, aggregateID string, fromVersion int) ([]Event, error) {
 	rows, err := s.db.QueryxContext(ctx, `
-		SELECT event_type, data, metadata FROM events
+		SELECT event_type, version, data, metadata, created_at FROM events
 		WHERE aggregate_type = $1 AND aggregate_id = $2 AND version > $3
 		ORDER BY version ASC`,
 		aggregateType, aggregateID, fromVersion)
@@ -66,13 +67,20 @@ func (s *pgStore) Load(ctx context.Context, aggregateType, aggregateID string, f
 	var events []Event
 	for rows.Next() {
 		var evType string
+		var version int
 		var data, meta []byte
-		if err := rows.Scan(&evType, &data, &meta); err != nil {
+		var createdAt time.Time
+		if err := rows.Scan(&evType, &version, &data, &meta, &createdAt); err != nil {
 			return nil, err
 		}
 		e, err := Deserialise(evType, data)
 		if err != nil {
 			return nil, err
+		}
+		if env, ok := e.(Enveloper); ok {
+			var metaMap map[string]string
+			_ = json.Unmarshal(meta, &metaMap)
+			env.SetEnvelope(aggregateID, aggregateType, evType, version, createdAt, metaMap)
 		}
 		events = append(events, e)
 	}
