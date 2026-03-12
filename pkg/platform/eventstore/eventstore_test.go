@@ -69,7 +69,7 @@ func TestAggregateApply(t *testing.T) {
 	agg := New("id1", testApply)
 	e := NewBaseEvent("id1", "Test", "Increment", 1, nil)
 
-	agg.Apply(e)
+	agg.Apply(&e)
 
 	assert.Equal(t, 1, agg.State.Count)
 	assert.Equal(t, 1, agg.Version)
@@ -78,7 +78,8 @@ func TestAggregateApply(t *testing.T) {
 
 func TestAggregateClearUncommitted(t *testing.T) {
 	agg := New("id1", testApply)
-	agg.Apply(NewBaseEvent("id1", "Test", "Increment", 1, nil))
+	e := NewBaseEvent("id1", "Test", "Increment", 1, nil)
+	agg.Apply(&e)
 	assert.Len(t, agg.Uncommitted(), 1)
 
 	agg.ClearUncommitted()
@@ -89,7 +90,7 @@ func TestAggregateRehydrate(t *testing.T) {
 	agg := New("id1", testApply)
 	e := NewBaseEvent("id1", "Test", "Increment", 5, nil)
 
-	agg.Rehydrate(e)
+	agg.Rehydrate(&e)
 
 	assert.Equal(t, 1, agg.State.Count)
 	assert.Equal(t, 5, agg.Version)
@@ -99,7 +100,8 @@ func TestAggregateRehydrate(t *testing.T) {
 func TestAggregateMultipleApply(t *testing.T) {
 	agg := New("id1", testApply)
 	for i := 1; i <= 3; i++ {
-		agg.Apply(NewBaseEvent("id1", "Test", "Increment", i, nil))
+		e := NewBaseEvent("id1", "Test", "Increment", i, nil)
+		agg.Apply(&e)
 	}
 	assert.Equal(t, 3, agg.State.Count)
 	assert.Equal(t, 3, agg.Version)
@@ -114,13 +116,13 @@ type testEvent struct {
 }
 
 func TestRegisterAndDeserialise(t *testing.T) {
-	Register[testEvent]("TestEvent")
+	Register[*testEvent]("TestEvent")
 
-	data, _ := json.Marshal(testEvent{Name: "hello"})
+	data, _ := json.Marshal(&testEvent{Name: "hello"})
 	e, err := Deserialise("TestEvent", data)
 
 	require.NoError(t, err)
-	te, ok := e.(testEvent)
+	te, ok := e.(*testEvent)
 	require.True(t, ok)
 	assert.Equal(t, "hello", te.Name)
 }
@@ -132,7 +134,7 @@ func TestDeserialiseUnknownType(t *testing.T) {
 }
 
 func TestDeserialiseInvalidJSON(t *testing.T) {
-	Register[testEvent]("TestEventBad")
+	Register[*testEvent]("TestEventBad")
 	_, err := Deserialise("TestEventBad", []byte(`{invalid`))
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "decode")
@@ -158,7 +160,7 @@ func TestPgStoreAppend(t *testing.T) {
 	mock.ExpectCommit()
 
 	e := NewBaseEvent("a1", "Order", "OrderCreated", 1, map[string]string{"k": "v"})
-	err := store.Append(context.Background(), []Event{e})
+	err := store.Append(context.Background(), []Event{&e})
 	require.NoError(t, err)
 	assert.NoError(t, mock.ExpectationsWereMet())
 }
@@ -171,7 +173,7 @@ func TestPgStoreAppendMarshalEventError(t *testing.T) {
 	mock.ExpectRollback()
 
 	e := unmarshalableEvent{BaseEvent: NewBaseEvent("a", "T", "E", 1, nil)}
-	err := store.Append(context.Background(), []Event{e})
+	err := store.Append(context.Background(), []Event{&e})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "marshal event")
 }
@@ -182,7 +184,8 @@ func TestPgStoreAppendBeginError(t *testing.T) {
 
 	mock.ExpectBegin().WillReturnError(errors.New("begin fail"))
 
-	err := store.Append(context.Background(), []Event{NewBaseEvent("a", "T", "E", 1, nil)})
+	e := NewBaseEvent("a", "T", "E", 1, nil)
+	err := store.Append(context.Background(), []Event{&e})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "begin tx")
 }
@@ -195,7 +198,8 @@ func TestPgStoreAppendExecError(t *testing.T) {
 	mock.ExpectExec("INSERT INTO events").WillReturnError(errors.New("exec fail"))
 	mock.ExpectRollback()
 
-	err := store.Append(context.Background(), []Event{NewBaseEvent("a", "T", "E", 1, nil)})
+	e := NewBaseEvent("a", "T", "E", 1, nil)
+	err := store.Append(context.Background(), []Event{&e})
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "append")
 }
@@ -208,7 +212,8 @@ func TestPgStoreAppendCommitError(t *testing.T) {
 	mock.ExpectExec("INSERT INTO events").WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit().WillReturnError(errors.New("commit fail"))
 
-	err := store.Append(context.Background(), []Event{NewBaseEvent("a", "T", "E", 1, nil)})
+	e := NewBaseEvent("a", "T", "E", 1, nil)
+	err := store.Append(context.Background(), []Event{&e})
 	assert.Error(t, err)
 }
 
@@ -224,7 +229,7 @@ func TestPgStoreAppendEmpty(t *testing.T) {
 }
 
 func TestPgStoreLoad(t *testing.T) {
-	Register[testEvent]("LoadTest")
+	Register[*testEvent]("LoadTest")
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
@@ -296,7 +301,7 @@ func TestPgStoreLoadDeserialiseError(t *testing.T) {
 }
 
 func TestPgStoreLoadRowsErr(t *testing.T) {
-	Register[testEvent]("RowsErrEvent")
+	Register[*testEvent]("RowsErrEvent")
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 
@@ -505,7 +510,7 @@ func TestProjectionRunnerRunOnceError(t *testing.T) {
 }
 
 func TestProjectionRunnerPollFirstRun(t *testing.T) {
-	Register[testEvent]("PollEvent")
+	Register[*testEvent]("PollEvent")
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
@@ -596,7 +601,7 @@ func TestProjectionRunnerPollQueryError(t *testing.T) {
 }
 
 func TestProjectionRunnerPollHandleError(t *testing.T) {
-	Register[testEvent]("HandleErr")
+	Register[*testEvent]("HandleErr")
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)
@@ -662,7 +667,7 @@ func TestProjectionRunnerPollScanError(t *testing.T) {
 }
 
 func TestProjectionRunnerPollRowsErr(t *testing.T) {
-	Register[testEvent]("PollRowsErr")
+	Register[*testEvent]("PollRowsErr")
 	db, mock := testutil.NewMockDB(t)
 	store := NewPgStore(db)
 	r := NewProjectionRunner(db, store)

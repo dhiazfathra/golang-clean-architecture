@@ -39,8 +39,8 @@ func newPgDB(t *testing.T) (*sqlx.DB, sqlmock.Sqlmock) {
 	return sqlx.NewDb(db, "postgres"), mock
 }
 
-func newPgEvent(evType string, ver int) pgTestEvent {
-	return pgTestEvent{
+func newPgEvent(evType string, ver int) *pgTestEvent {
+	return &pgTestEvent{
 		BaseEvent: NewBaseEvent("abc-123", "order", evType, ver, map[string]string{"src": "test"}),
 		Payload:   "payload",
 	}
@@ -143,8 +143,8 @@ func TestPgAppendMarshalEventError(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectRollback()
 
-	bad := pgBadJSONEvent{newPgEvent("OrderCreated", 1)}
-	err := store.Append(context.Background(), []Event{bad})
+	bad := pgBadJSONEvent{*newPgEvent("OrderCreated", 1)}
+	err := store.Append(context.Background(), []Event{&bad})
 	assert.ErrorContains(t, err, "marshal event")
 }
 
@@ -154,7 +154,7 @@ func TestPgAppendMarshalEventError(t *testing.T) {
 
 func TestPgLoadSuccess(t *testing.T) {
 	snapshotRegistryForPg(t)
-	Register[pgTestEvent]("OrderCreated")
+	Register[*pgTestEvent]("OrderCreated")
 
 	db, mock := newPgDB(t)
 	store := NewPgStore(db)
@@ -175,8 +175,8 @@ func TestPgLoadSuccess(t *testing.T) {
 
 func TestPgLoadMultipleRows(t *testing.T) {
 	snapshotRegistryForPg(t)
-	Register[pgTestEvent]("OrderCreated")
-	Register[pgTestEvent]("OrderShipped")
+	Register[*pgTestEvent]("OrderCreated")
+	Register[*pgTestEvent]("OrderShipped")
 
 	db, mock := newPgDB(t)
 	store := NewPgStore(db)
@@ -264,7 +264,7 @@ func TestPgLoadDeserialiseUnknownType(t *testing.T) {
 
 func TestPgLoadDeserialiseInvalidJSON(t *testing.T) {
 	snapshotRegistryForPg(t)
-	Register[pgTestEvent]("OrderCreated")
+	Register[*pgTestEvent]("OrderCreated")
 
 	db, mock := newPgDB(t)
 	store := NewPgStore(db)
@@ -279,7 +279,7 @@ func TestPgLoadDeserialiseInvalidJSON(t *testing.T) {
 
 func TestPgLoadRowsError(t *testing.T) {
 	snapshotRegistryForPg(t)
-	Register[pgTestEvent]("OrderCreated")
+	Register[*pgTestEvent]("OrderCreated")
 
 	db, mock := newPgDB(t)
 	store := NewPgStore(db)
@@ -298,7 +298,7 @@ func TestPgLoadRowsError(t *testing.T) {
 }
 
 // Compile-time check: pgTestEvent satisfies Event.
-var _ Event = pgTestEvent{}
+var _ Event = &pgTestEvent{}
 
 // Compile-time check: verify newPgDB returns a usable *sqlx.DB.
 var _ = func() { var _ *sqlx.DB = nil; var _ = time.Time{} }

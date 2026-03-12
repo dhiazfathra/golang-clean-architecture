@@ -765,7 +765,7 @@ func TestProjectorHandleUnknownEvent(t *testing.T) {
 	p := NewProjector(db)
 
 	e := eventstore.NewBaseEvent("123", "role", "unknown", 1, nil)
-	err := p.Handle(context.Background(), e)
+	err := p.Handle(context.Background(), &e)
 	assert.NoError(t, err)
 }
 
