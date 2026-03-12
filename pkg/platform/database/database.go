@@ -28,10 +28,11 @@ func MustConnect(dsn string, pool PoolConfig) *sqlx.DB {
 		)
 	})
 
-	db, err := sqlx.Open("postgres-traced", dsn)
+	stdDB, err := sqltrace.Open("postgres-traced", dsn)
 	if err != nil {
 		panic(fmt.Sprintf("database: open: %v", err))
 	}
+	db := sqlx.NewDb(stdDB, "postgres")
 	if err := db.Ping(); err != nil {
 		panic(fmt.Sprintf("database: ping: %v", err))
 	}
