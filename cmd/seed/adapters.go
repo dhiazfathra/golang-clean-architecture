@@ -14,14 +14,34 @@ import (
 	"github.com/dhiazfathra/golang-clean-architecture/pkg/platform/seeder"
 )
 
-type orderUserProvider struct{ svc *user.Service }
+type ffService interface {
+	Create(ctx context.Context, key, description string, enabled bool, userID string) (*featureflag.Flag, error)
+	List(ctx context.Context) ([]featureflag.Flag, error)
+}
+
+type evService interface {
+	Create(ctx context.Context, platform, key, value, userID string) (*envvar.EnvVar, error)
+	ListByPlatform(ctx context.Context, platform string, req database.PageRequest) (*database.PageResponse[envvar.EnvVar], error)
+}
+
+type atService interface {
+	Create(ctx context.Context, name, userID string, ttl time.Duration) (string, *apitoken.APIToken, error)
+	List(ctx context.Context, userID string) ([]apitoken.APIToken, error)
+}
+
+type orderSvc interface {
+	CreateOrder(ctx context.Context, cmd order.CreateOrderCmd) (string, error)
+	List(ctx context.Context, req order.ListRequest) (*order.ListResponse, error)
+}
+
+type orderUserProvider struct{ svc user.UserService }
 
 func (a *orderUserProvider) GetByID(ctx context.Context, id string) (bool, error) {
 	u, err := a.svc.GetByID(ctx, id)
 	return u != nil, err
 }
 
-type seederUserAdapter struct{ svc *user.Service }
+type seederUserAdapter struct{ svc user.UserService }
 
 func (a *seederUserAdapter) CreateUser(ctx context.Context, cmd seeder.CreateUserCmd) (string, error) {
 	return a.svc.CreateUserForSeeder(ctx, cmd)
@@ -35,7 +55,7 @@ func (a *seederUserAdapter) AssignRole(ctx context.Context, userID, roleID, acto
 	return a.svc.AssignRole(ctx, userID, roleID, actor)
 }
 
-type seederFFAdapter struct{ svc *featureflag.Service }
+type seederFFAdapter struct{ svc ffService }
 
 func (a *seederFFAdapter) Create(ctx context.Context, key, description string, enabled bool, userID string) (*seeder.FeatureFlag, error) {
 	f, err := a.svc.Create(ctx, key, description, enabled, userID)
@@ -67,7 +87,7 @@ func (a *seederFFAdapter) List(ctx context.Context) ([]seeder.FeatureFlag, error
 	return result, nil
 }
 
-type seederEnvVarAdapter struct{ svc *envvar.Service }
+type seederEnvVarAdapter struct{ svc evService }
 
 func (a *seederEnvVarAdapter) Create(ctx context.Context, platform, key, value, userID string) (*seeder.EnvVar, error) {
 	e, err := a.svc.Create(ctx, platform, key, value, userID)
@@ -105,7 +125,7 @@ func (a *seederEnvVarAdapter) ListByPlatform(ctx context.Context, platform strin
 	}, nil
 }
 
-type seederAPITokenAdapter struct{ svc *apitoken.Service }
+type seederAPITokenAdapter struct{ svc atService }
 
 func (a *seederAPITokenAdapter) Create(ctx context.Context, name, userID string, ttl time.Duration) (string, *seeder.APIToken, error) {
 	raw, token, err := a.svc.Create(ctx, name, userID, ttl)
@@ -141,7 +161,7 @@ func (a *seederAPITokenAdapter) List(ctx context.Context, userID string) ([]seed
 	return result, nil
 }
 
-type seederOrderAdapter struct{ svc *order.Service }
+type seederOrderAdapter struct{ svc orderSvc }
 
 func (a *seederOrderAdapter) CreateOrder(ctx context.Context, cmd seeder.CreateOrderCmd) (string, error) {
 	return a.svc.CreateOrder(ctx, order.CreateOrderCmd{
