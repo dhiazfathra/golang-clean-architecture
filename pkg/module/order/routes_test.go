@@ -18,8 +18,8 @@ func TestRegisterRoutes(t *testing.T) {
 	e := echo.New()
 	g := e.Group("/api")
 
-	mockHandler := &order.Handler{}                                                      // or use a mock if Handler has dependencies
-	rbacSvc := rbac.NewService(&eventstore.MockEventStore{}, &rbac.MockReadRepository{}) // or mock it
+	mockHandler := &order.Handler{}
+	rbacSvc := rbac.NewService(&eventstore.MockEventStore{}, &rbac.MockReadRepository{})
 
 	order.RegisterRoutes(g, mockHandler, rbacSvc, logging.Noop())
 
@@ -42,7 +42,6 @@ func TestRegisterRoutes(t *testing.T) {
 
 			e.ServeHTTP(rec, req)
 
-			// Route exists and RBAC middleware fires (not 404)
 			assert.NotEqual(t, http.StatusNotFound, rec.Code, "route should be registered")
 			assert.Equal(t, tt.expectedStatus, rec.Code)
 		})
