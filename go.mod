@@ -16,7 +16,7 @@ require (
 	github.com/lib/pq v1.11.2
 	github.com/rs/zerolog v1.34.0
 	github.com/stretchr/testify v1.11.1
-	github.com/valkey-io/valkey-go v1.0.72
+	github.com/valkey-io/valkey-go v1.0.73
 	golang.org/x/crypto v0.49.0
 	gopkg.in/yaml.v3 v3.0.1
 )
