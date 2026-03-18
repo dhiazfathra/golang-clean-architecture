@@ -470,6 +470,113 @@ func (m *mockFlusher) RunOnce(ctx context.Context) error {
 	return nil
 }
 
+// --- SeedFeatureFlags ---
+
+func TestSeedFeatureFlags_CreatesAllFlagsWhenNoneExist(t *testing.T) {
+	var createdFlags []string
+	mock := &mockFFCreator{
+		ListFn: func(_ context.Context) ([]seeder.FeatureFlag, error) {
+			return nil, nil
+		},
+		CreateFn: func(_ context.Context, key, description string, enabled bool, userID string) (*seeder.FeatureFlag, error) {
+			createdFlags = append(createdFlags, key)
+			return &seeder.FeatureFlag{ID: int64(len(createdFlags)), Key: key, Enabled: enabled, Description: description}, nil
+		},
+	}
+
+	err := seeder.SeedFeatureFlags(context.Background(), mock)
+	require.NoError(t, err)
+	assert.Len(t, createdFlags, 3)
+	assert.Contains(t, createdFlags, "maintenance_mode")
+	assert.Contains(t, createdFlags, "new_ui")
+	assert.Contains(t, createdFlags, "rate_limiting")
+}
+
+func TestSeedFeatureFlags_SkipsExistingFlags(t *testing.T) {
+	var createCalled int
+	mock := &mockFFCreator{
+		ListFn: func(_ context.Context) ([]seeder.FeatureFlag, error) {
+			return []seeder.FeatureFlag{
+				{ID: 1, Key: "maintenance_mode", Enabled: false},
+			}, nil
+		},
+		CreateFn: func(_ context.Context, key, _ string, _ bool, _ string) (*seeder.FeatureFlag, error) {
+			createCalled++
+			return &seeder.FeatureFlag{ID: int64(createCalled), Key: key}, nil
+		},
+	}
+
+	err := seeder.SeedFeatureFlags(context.Background(), mock)
+	require.NoError(t, err)
+	assert.Equal(t, 2, createCalled, "only 2 flags should be created (new_ui and rate_limiting)")
+}
+
+func TestSeedFeatureFlags_SkipsAllWhenAllExist(t *testing.T) {
+	var createCalled int
+	mock := &mockFFCreator{
+		ListFn: func(_ context.Context) ([]seeder.FeatureFlag, error) {
+			return []seeder.FeatureFlag{
+				{ID: 1, Key: "maintenance_mode"},
+				{ID: 2, Key: "new_ui"},
+				{ID: 3, Key: "rate_limiting"},
+			}, nil
+		},
+		CreateFn: func(_ context.Context, _, _ string, _ bool, _ string) (*seeder.FeatureFlag, error) {
+			createCalled++
+			return &seeder.FeatureFlag{}, nil
+		},
+	}
+
+	err := seeder.SeedFeatureFlags(context.Background(), mock)
+	require.NoError(t, err)
+	assert.Equal(t, 0, createCalled)
+}
+
+func TestSeedFeatureFlags_ListError(t *testing.T) {
+	mock := &mockFFCreator{
+		ListFn: func(_ context.Context) ([]seeder.FeatureFlag, error) {
+			return nil, assert.AnError
+		},
+	}
+
+	err := seeder.SeedFeatureFlags(context.Background(), mock)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "list existing feature flags")
+}
+
+func TestSeedFeatureFlags_CreateError(t *testing.T) {
+	mock := &mockFFCreator{
+		ListFn: func(_ context.Context) ([]seeder.FeatureFlag, error) {
+			return nil, nil
+		},
+		CreateFn: func(_ context.Context, key, _ string, _ bool, _ string) (*seeder.FeatureFlag, error) {
+			if key == "new_ui" {
+				return nil, assert.AnError
+			}
+			return &seeder.FeatureFlag{ID: 1, Key: key}, nil
+		},
+	}
+
+	err := seeder.SeedFeatureFlags(context.Background(), mock)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "seed feature flag new_ui")
+}
+
+func TestSeedFeatureFlags_UsesCorrectUserID(t *testing.T) {
+	var capturedUserID string
+	mock := &mockFFCreator{
+		ListFn: func(_ context.Context) ([]seeder.FeatureFlag, error) { return nil, nil },
+		CreateFn: func(_ context.Context, _, _ string, _ bool, userID string) (*seeder.FeatureFlag, error) {
+			capturedUserID = userID
+			return &seeder.FeatureFlag{}, nil
+		},
+	}
+
+	err := seeder.SeedFeatureFlags(context.Background(), mock)
+	require.NoError(t, err)
+	assert.Equal(t, "system", capturedUserID)
+}
+
 // --- Seed (integration) ---
 
 func TestSeed_Success(t *testing.T) {
