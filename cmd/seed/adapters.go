@@ -1,5 +1,9 @@
 package main
 
+// This file contains adapter implementations for connecting domain services to the seeder package.
+// It is duplicated in cmd/server/adapters.go to allow independent testing and avoid import cycles.
+// The duplication is excluded from SonarQube analysis via sonar.cpd.exclusions in sonar-project.properties.
+
 import (
 	"context"
 	"strconv"

@@ -29,6 +29,7 @@ go.work.sum
 # env file
 .env
 o*.json
+.o*
 
 # Pre-commit local overrides
 .pre-commit.local.yaml
