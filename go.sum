@@ -40,12 +40,12 @@ github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.6.0 h1:8OnDeqTFE2rfQ1hc+z5
 github.com/DataDog/dd-trace-go/contrib/net/http/v2 v2.6.0/go.mod h1:sJt3xxNRS2oVmzo5HpQnUaYoBDXKpYkU7UNUw3qnFyg=
 github.com/DataDog/dd-trace-go/contrib/valkey-io/valkey-go/v2 v2.6.0 h1:kY6tmd1Mb/aPlrTrdnpAImasadxOwgOUWeMSW/RwtU4=
 github.com/DataDog/dd-trace-go/contrib/valkey-io/valkey-go/v2 v2.6.0/go.mod h1:U1iCm439nrEux9e747gPlKxkdN0GLHYk7vCtcC4bVB8=
-github.com/DataDog/dd-trace-go/v2 v2.6.0 h1:hqrgEmDi9atKGU9+xuyMmcsUxfzNAR6+GvhsXOG6qpk=
-github.com/DataDog/dd-trace-go/v2 v2.6.0/go.mod h1:TwIaEXJHXmFWd513U69T1cFPHinI2pDuvlh6DuMGC88=
+github.com/DataDog/dd-trace-go/v2 v2.7.0 h1:tRXcqY7ZOGF0MA95/M82i8QyK50DENCdFrykfH371RU=
+github.com/DataDog/dd-trace-go/v2 v2.7.0/go.mod h1:Wqiyg0zDUu6lb8dICAIvC/gOdWolSgPcfDKshGQltPQ=
 github.com/DataDog/go-libddwaf/v4 v4.8.0 h1:m6Bl1lS2RtVN4MtdTYhR5vJ2fWQ3WmNy4FiNBpzrp6w=
 github.com/DataDog/go-libddwaf/v4 v4.8.0/go.mod h1:/AZqP6zw3qGJK5mLrA0PkfK3UQDk1zCI2fUNCt4xftE=
-github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20250721125240-fdf1ef85b633 h1:ZRLR9Lbym748e8RznWzmSoK+OfV+8qW6SdNYA4/IqdA=
-github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20250721125240-fdf1ef85b633/go.mod h1:YFoTl1xsMzdSRFIu33oCSPS/3+HZAPGpO3oOM96wXCM=
+github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20260217080614-b0f4edc38a6d h1:cH9Bm0tJ8FEQbA4FRi0iRm7Zr/5Lata/Or31c+Dth0E=
+github.com/DataDog/go-runtime-metrics-internal v0.0.4-0.20260217080614-b0f4edc38a6d/go.mod h1:yDuvU+Ak1TKwgd4K8DNcpJmUrrK8ONLkBMGNAppmBRk=
 github.com/DataDog/go-sqllexer v0.2.0 h1:MLhGCsegZyZzP/UhAhxKHvdlYEwB4rsSZX6J21rcAJY=
 github.com/DataDog/go-sqllexer v0.2.0/go.mod h1:3xTFXBU69vUikYpESggScvC0RKYA7ZIdVrIkLwUOWdE=
 github.com/DataDog/go-tuf v1.1.1-0.5.2 h1:YWvghV4ZvrQsPcUw8IOUMSDpqc3W5ruOIC+KJxPknv0=
